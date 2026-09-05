@@ -1,5 +1,0 @@
-pandas>=2.0
-pyarrow
-numpy
-statsmodels
-matplotlib
