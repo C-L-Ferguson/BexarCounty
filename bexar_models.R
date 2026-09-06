@@ -204,10 +204,35 @@ specC_priors <- run_feglm(
   fe_vars = "PROSECUTOR",
   "SpecC_WithPriors")
 
+# ── SpecC controlling for caseload composition drift (addresses selection) ────
+# Falsification showed PROSECUTOR_CASE_N predicts declining Black/Latino share.
+# PRED_BLACK_SHARE is the within-prosecutor model-implied Black probability
+# given offense type/category; adding it tests whether the interaction reflects
+# caseload sorting rather than differential treatment.
+
+black_share_fit <- feglm(
+  BLACK ~ PROSECUTOR_CASE_N + OFFENSE_TYPE + OFFENSE_CATEGORY | PROSECUTOR,
+  data = df |> filter(!is.na(OFFENSE_CATEGORY)),
+  family = binomial()
+)
+
+df_comp <- df |>
+  filter(!is.na(OFFENSE_CATEGORY)) |>
+  mutate(PRED_BLACK_SHARE = fitted(black_share_fit))
+
+specC_comp <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N +
+    PRED_BLACK_SHARE,
+  df_comp,
+  fe_vars = "PROSECUTOR",
+  "SpecC_CompControl")
+
 # ── Export ────────────────────────────────────────────────────────────────────
 
 all_results <- bind_rows(m1, m2, specA, specB, specC, specD, m6, m7, m8, m9,
-                         specA_priors, specC_priors) |>
+                         specA_priors, specC_priors, specC_comp) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
