@@ -19,7 +19,16 @@ library(scales)
 
 dir.create(FIG_DIR, showWarnings = FALSE, recursive = TRUE)
 
-dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
+dp_raw <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
+
+# Restrict to prosecutors first observed 1991+ (matches main analysis sample)
+fresh_prosecutors <- dp_raw |>
+  group_by(`INTAKE-PROSECUTOR`) |>
+  summarise(first_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop") |>
+  filter(first_year >= 1991) |>
+  pull(`INTAKE-PROSECUTOR`)
+
+dp <- dp_raw |> filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors)
 
 COLORS    <- c(Black = "#1f4e79", Latino = "#c55a11", White = "#538135")
 RACE_ORDER <- c("Black", "Latino", "White")
