@@ -46,6 +46,13 @@ fresh_prosecutors <- df |>
 
 df <- df |> filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors)
 
+# Defendant career sequence (proxy for prior record)
+df <- df |>
+  arrange(SID, `CASE-YEAR`) |>
+  group_by(SID) |>
+  mutate(DEFENDANT_CASE_N = row_number()) |>
+  ungroup()
+
 message("Analysis sample: ", nrow(df), " cases, ",
         n_distinct(df$`INTAKE-PROSECUTOR`), " prosecutors (1991+ only)")
 
@@ -170,9 +177,27 @@ m9 <- run_logit(
   df_plea |> mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
   "M9_StraightConviction")
 
+# ── SpecA/C with defendant prior-record proxy (robustness) ───────────────────
+
+specA_priors <- run_logit(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N,
+  df |> filter(!is.na(OFFENSE_CATEGORY)),
+  "SpecA_WithPriors")
+
+specC_priors <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N,
+  df |> filter(!is.na(OFFENSE_CATEGORY)),
+  fe_vars = "PROSECUTOR",
+  "SpecC_WithPriors")
+
 # ── Export ────────────────────────────────────────────────────────────────────
 
-all_results <- bind_rows(m1, m2, specA, specB, specC, m6, m7, m8, m9) |>
+all_results <- bind_rows(m1, m2, specA, specB, specC, m6, m7, m8, m9,
+                         specA_priors, specC_priors) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
