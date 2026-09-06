@@ -1,5 +1,5 @@
-# Bexar County — Figures for Law Review Paper
-# Requires: bexar_panel_1990_2021.parquet (from bexar_clean.R)
+# Bexar County — Prosecutor Learning Curve Figures
+# Requires: bexar_prosecutor_panel_1990_2015.parquet (from bexar_prosecutor_panel.R)
 # Output: bexar_figures/ directory with PNG files
 
 library(tidyverse)
@@ -7,8 +7,7 @@ library(arrow)
 
 dir.create("bexar_figures", showWarnings = FALSE)
 
-panel   <- read_parquet("bexar_panel_1990_2021.parquet")
-primary <- panel |> filter(`RACE-LABEL` %in% c("Black", "White", "Latino"))
+dp <- read_parquet("bexar_prosecutor_panel_1990_2015.parquet")
 
 COLORS <- c(Black = "#1f4e79", Latino = "#c55a11", White = "#538135")
 RACE_ORDER <- c("Black", "Latino", "White")
@@ -19,7 +18,8 @@ theme_paper <- theme_minimal(base_size = 12) +
     panel.grid.minor  = element_blank(),
     axis.title        = element_text(size = 11),
     plot.title        = element_text(size = 12, face = "bold"),
-    plot.subtitle     = element_text(size = 10, color = "gray40")
+    plot.subtitle     = element_text(size = 10, color = "gray40"),
+    strip.text        = element_text(face = "bold")
   )
 
 save_fig <- function(p, name, w = 8, h = 5) {
@@ -28,139 +28,195 @@ save_fig <- function(p, name, w = 8, h = 5) {
   message("Saved: ", path)
 }
 
-# ── Figure 1: Deferred adjudication rate by race × year ──────────────────────
+bw <- dp |> filter(`RACE-LABEL` %in% c("Black", "White"))
 
-yearly_def <- primary |>
-  group_by(`CASE-YEAR`, Race = `RACE-LABEL`) |>
-  summarise(rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
-  arrange(Race, `CASE-YEAR`) |>
-  group_by(Race) |>
-  mutate(rate_smooth = zoo::rollmean(rate, k = 3, fill = NA, align = "center")) |>
-  ungroup()
+# ── Figure 1 (Primary): W-B gap by experience quintile, overall + by offense ──
 
-# zoo may not be installed — fall back to simple mean if needed
-if (!requireNamespace("zoo", quietly = TRUE)) {
-  yearly_def <- yearly_def |> mutate(rate_smooth = rate)
-  message("NOTE: install 'zoo' for smoothed trend lines")
-}
-
-p1 <- ggplot(yearly_def |> filter(!is.na(rate_smooth)),
-             aes(`CASE-YEAR`, rate_smooth * 100, color = Race)) +
-  geom_line(linewidth = 1) +
-  geom_vline(xintercept = 2019, linetype = "dashed",
-             color = "gray50", linewidth = 0.7) +
-  annotate("text", x = 2019.3, y = Inf, label = "2019 DA\ntransition",
-           hjust = 0, vjust = 1.3, size = 3, color = "gray40") +
-  scale_color_manual(values = COLORS, breaks = RACE_ORDER) +
-  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
-  scale_x_continuous(breaks = seq(1990, 2020, 5)) +
-  labs(title = "Deferred Adjudication Rate by Race, 1990–2021",
-       subtitle = "3-year rolling average",
-       x = "Case Year", y = "Deferred Adjudication Rate",
-       color = "Race/Ethnicity") +
-  theme_paper
-
-save_fig(p1, "fig1_deferred_trend.png")
-
-# ── Figure 2: Appointed counsel rate by race × year ──────────────────────────
-
-yearly_appt <- primary |>
-  filter(`ATTORNEY-TYPE` %in% c("Appointed", "Hired")) |>
-  mutate(is_appt = as.integer(`ATTORNEY-TYPE` == "Appointed")) |>
-  group_by(`CASE-YEAR`, Race = `RACE-LABEL`) |>
-  summarise(rate = mean(is_appt, na.rm = TRUE), .groups = "drop") |>
-  arrange(Race, `CASE-YEAR`) |>
-  group_by(Race) |>
-  mutate(rate_smooth = if (requireNamespace("zoo", quietly = TRUE))
-           zoo::rollmean(rate, k = 3, fill = NA, align = "center")
-         else rate) |>
-  ungroup()
-
-p2 <- ggplot(yearly_appt |> filter(!is.na(rate_smooth)),
-             aes(`CASE-YEAR`, rate_smooth * 100, color = Race)) +
-  geom_line(linewidth = 1) +
-  scale_color_manual(values = COLORS, breaks = RACE_ORDER) +
-  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
-  scale_x_continuous(breaks = seq(1990, 2020, 5)) +
-  labs(title = "Rate of Appointed Counsel by Race, 1990–2021",
-       subtitle = "3-year rolling average",
-       x = "Case Year", y = "Appointed Counsel Rate",
-       color = "Race/Ethnicity") +
-  theme_paper
-
-save_fig(p2, "fig2_appointed_trend.png")
-
-# ── Figure 3: Deferred rate by race × attorney type ──────────────────────────
-
-d3 <- primary |>
-  filter(`ATTORNEY-TYPE` %in% c("Appointed", "Hired")) |>
-  group_by(Race = `RACE-LABEL`, `Attorney Type` = `ATTORNEY-TYPE`) |>
-  summarise(rate = mean(DEFERRED, na.rm = TRUE) * 100, .groups = "drop") |>
-  mutate(Race = factor(Race, levels = RACE_ORDER))
-
-p3 <- ggplot(d3, aes(Race, rate, fill = Race, alpha = `Attorney Type`)) +
-  geom_col(position = position_dodge(0.7), width = 0.6) +
-  scale_fill_manual(values = COLORS, guide = "none") +
-  scale_alpha_manual(values = c(Appointed = 0.6, Hired = 1.0)) +
-  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
-  labs(title = "Deferred Adjudication Rate by Race and Attorney Type",
-       x = NULL, y = "Deferred Adjudication Rate",
-       alpha = "Counsel Type") +
-  theme_paper
-
-save_fig(p3, "fig3_deferred_by_attorney.png")
-
-# ── Figure 4: Pre/Post 2019 DiD visual ───────────────────────────────────────
-
-d4 <- primary |>
-  mutate(Period = if_else(`CASE-YEAR` >= 2019, "2019–2021\n(Gonzales)", "Pre-2019\n(LaHood)")) |>
-  group_by(Period, Race = `RACE-LABEL`) |>
-  summarise(rate = mean(DEFERRED, na.rm = TRUE) * 100, .groups = "drop") |>
-  mutate(Race = factor(Race, levels = RACE_ORDER),
-         Period = factor(Period, levels = c("Pre-2019\n(LaHood)", "2019–2021\n(Gonzales)")))
-
-p4 <- ggplot(d4, aes(Race, rate, fill = Race)) +
-  geom_col(width = 0.6) +
-  geom_text(aes(label = sprintf("%.1f%%", rate)),
-            vjust = -0.4, size = 3.2) +
-  facet_wrap(~Period) +
-  scale_fill_manual(values = COLORS, guide = "none") +
-  scale_y_continuous(labels = scales::percent_format(scale = 1),
-                     expand = expansion(mult = c(0, 0.12))) +
-  labs(title = "Deferred Adjudication Rate Before and After 2019 DA Transition",
-       x = NULL, y = "Deferred Adjudication Rate") +
-  theme_paper +
-  theme(strip.text = element_text(size = 10, face = "bold"))
-
-save_fig(p4, "fig4_did_visual.png")
-
-# ── Figure 5: Outcome rates overview ─────────────────────────────────────────
-
-d5 <- primary |>
-  group_by(Race = `RACE-LABEL`) |>
+gap_data <- bw |>
+  filter(`OFFENSE-CLASS` %in% c("F1", "F2", "F3", "FS")) |>
+  group_by(`OFFENSE-CLASS`, EXP_QUINTILE, `RACE-LABEL`) |>
   summarise(
-    `Deferred Adjudication` = mean(DEFERRED,      na.rm = TRUE) * 100,
-    Dismissed               = mean(DISMISSED,     na.rm = TRUE) * 100,
-    `Guilty Plea`           = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
-    Convicted               = mean(CONVICTED,     na.rm = TRUE) * 100,
+    n    = n(),
+    rate = mean(DEFERRED, na.rm = TRUE),
     .groups = "drop"
   ) |>
-  pivot_longer(-Race, names_to = "Outcome", values_to = "Rate") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = c(n, rate)) |>
   mutate(
-    Race    = factor(Race, levels = RACE_ORDER),
-    Outcome = factor(Outcome,
-                     levels = c("Deferred Adjudication", "Dismissed",
-                                "Guilty Plea", "Convicted"))
+    gap   = (rate_White - rate_Black) * 100,
+    se    = sqrt((rate_White * (1 - rate_White) / n_White) +
+                 (rate_Black * (1 - rate_Black) / n_Black)) * 100,
+    ci_lo = gap - 1.96 * se,
+    ci_hi = gap + 1.96 * se,
+    `Offense Type` = `OFFENSE-CLASS`
   )
 
-p5 <- ggplot(d5, aes(Rate, Outcome, fill = Race)) +
-  geom_col(position = position_dodge(0.7), width = 0.6) +
-  scale_fill_manual(values = COLORS, breaks = RACE_ORDER) +
-  scale_x_continuous(labels = scales::percent_format(scale = 1)) +
-  labs(title = "Case Outcome Rates by Race, 1990–2021",
-       x = "Rate", y = NULL, fill = "Race/Ethnicity") +
+gap_overall <- bw |>
+  group_by(EXP_QUINTILE, `RACE-LABEL`) |>
+  summarise(n = n(), rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = c(n, rate)) |>
+  mutate(
+    gap   = (rate_White - rate_Black) * 100,
+    se    = sqrt((rate_White * (1 - rate_White) / n_White) +
+                 (rate_Black * (1 - rate_Black) / n_Black)) * 100,
+    ci_lo = gap - 1.96 * se,
+    ci_hi = gap + 1.96 * se,
+    `Offense Type` = "Overall"
+  )
+
+fig1_data <- bind_rows(gap_overall, gap_data) |>
+  mutate(`Offense Type` = factor(`Offense Type`,
+                                  levels = c("Overall", "F1", "F2", "F3", "FS")))
+
+p1 <- ggplot(fig1_data, aes(EXP_QUINTILE, gap)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#1f4e79") +
+  geom_line(color = "#1f4e79", linewidth = 1) +
+  geom_point(color = "#1f4e79", size = 2.5) +
+  facet_wrap(~`Offense Type`, nrow = 1) +
+  scale_x_continuous(breaks = 1:5, labels = paste0("Q", 1:5)) +
+  labs(
+    title    = "White–Black Deferred Adjudication Gap by Prosecutor Experience Quintile",
+    subtitle = "Percentage-point gap (White rate minus Black rate); 95% confidence intervals; 1990–2015",
+    x = "Experience Quintile (Q1 = earliest cases, Q5 = latest)",
+    y = "Gap (percentage points)"
+  ) +
   theme_paper
 
-save_fig(p5, "fig5_outcome_overview.png", w = 9, h = 5)
+save_fig(p1, "fig1_gap_by_quintile.png", w = 12, h = 5)
+
+# ── Figure 2: Both groups trajectory — rates on same chart ────────────────────
+
+both_traj <- bw |>
+  group_by(EXP_QUINTILE, Race = `RACE-LABEL`) |>
+  summarise(
+    N    = n(),
+    rate = mean(DEFERRED, na.rm = TRUE),
+    se   = sqrt(rate * (1 - rate) / N),
+    .groups = "drop"
+  ) |>
+  mutate(Race = factor(Race, levels = c("Black", "White")))
+
+p2 <- ggplot(both_traj, aes(EXP_QUINTILE, rate * 100, color = Race, group = Race)) +
+  geom_ribbon(aes(ymin = (rate - 1.96 * se) * 100,
+                  ymax = (rate + 1.96 * se) * 100,
+                  fill = Race), alpha = 0.12, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c(Black = "#1f4e79", White = "#538135")) +
+  scale_fill_manual(values  = c(Black = "#1f4e79", White = "#538135")) +
+  scale_x_continuous(breaks = 1:5, labels = paste0("Q", 1:5)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  labs(
+    title    = "Deferred Adjudication Rate by Race and Prosecutor Experience",
+    subtitle = "Both groups rise; White defendants rise faster — 1990–2015",
+    x = "Experience Quintile (Q1 = earliest cases, Q5 = latest)",
+    y = "Deferred Adjudication Rate",
+    color = NULL, fill = NULL
+  ) +
+  theme_paper
+
+save_fig(p2, "fig2_both_groups_trajectory.png")
+
+# ── Figure 3: Career start vs. end scatterplot ────────────────────────────────
+# One dot per prosecutor: x = Q1 gap, y = Q5 gap
+
+prosecutor_gaps <- bw |>
+  filter(EXP_QUINTILE %in% c(1, 5)) |>
+  group_by(`INTAKE-PROSECUTOR`, EXP_QUINTILE, `RACE-LABEL`) |>
+  summarise(rate = mean(DEFERRED, na.rm = TRUE), n = n(), .groups = "drop") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = c(rate, n)) |>
+  mutate(gap = (rate_White - rate_Black) * 100,
+         Period = if_else(EXP_QUINTILE == 1, "Early (Q1)", "Late (Q5)")) |>
+  select(`INTAKE-PROSECUTOR`, Period, gap) |>
+  pivot_wider(names_from = Period, values_from = gap) |>
+  drop_na()
+
+p3 <- ggplot(prosecutor_gaps,
+             aes(`Early (Q1)`, `Late (Q5)`)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(alpha = 0.7, color = "#1f4e79", size = 2.5) +
+  annotate("text", x = Inf, y = -Inf, label = "Below line = gap narrowed",
+           hjust = 1.1, vjust = -0.5, size = 3, color = "gray50") +
+  annotate("text", x = -Inf, y = Inf, label = "Above line = gap widened",
+           hjust = -0.1, vjust = 1.5, size = 3, color = "gray50") +
+  labs(
+    title    = "Prosecutor Career Gap: Early vs. Late Career",
+    subtitle = paste0("One dot per prosecutor (n=", nrow(prosecutor_gaps),
+                      "). Diagonal = no change. Most dots above line."),
+    x = "White–Black Gap in Q1 (percentage points)",
+    y = "White–Black Gap in Q5 (percentage points)"
+  ) +
+  theme_paper
+
+save_fig(p3, "fig3_career_scatterplot.png")
+
+# ── Figure 4: Individual trajectories — top 10 highest-volume prosecutors ─────
+
+top10 <- dp |>
+  count(`INTAKE-PROSECUTOR`, sort = TRUE) |>
+  slice_head(n = 10) |>
+  pull(`INTAKE-PROSECUTOR`)
+
+indiv <- dp |>
+  filter(`INTAKE-PROSECUTOR` %in% top10, `RACE-LABEL` %in% c("Black", "White")) |>
+  arrange(`INTAKE-PROSECUTOR`, `RACE-LABEL`, PROSECUTOR_CASE_N) |>
+  group_by(`INTAKE-PROSECUTOR`, `RACE-LABEL`) |>
+  mutate(
+    roll_rate = zoo::rollmean(DEFERRED, k = 3, fill = NA, align = "center")
+  ) |>
+  ungroup()
+
+if (!requireNamespace("zoo", quietly = TRUE)) {
+  indiv <- indiv |> mutate(roll_rate = DEFERRED)
+  message("NOTE: install 'zoo' for smooth individual trajectories")
+}
+
+# Shorten name labels for facet strips
+indiv <- indiv |>
+  mutate(Label = str_extract(`INTAKE-PROSECUTOR`, "^\\S+\\s+\\S+") |>
+           str_trunc(20))
+
+p4 <- ggplot(indiv |> filter(!is.na(roll_rate)),
+             aes(PROSECUTOR_CASE_N, roll_rate * 100,
+                 color = `RACE-LABEL`, group = `RACE-LABEL`)) +
+  geom_line(alpha = 0.8, linewidth = 0.7) +
+  facet_wrap(~Label, nrow = 2, scales = "free_x") +
+  scale_color_manual(values = c(Black = "#1f4e79", White = "#538135"),
+                     name = NULL) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  labs(
+    title    = "Individual Prosecutor Trajectories — Top 10 by Volume",
+    subtitle = "3-case rolling average deferred adjudication rate by race",
+    x = "Career Case Number",
+    y = "Deferred Adjudication Rate"
+  ) +
+  theme_paper +
+  theme(axis.text.x = element_text(size = 7))
+
+save_fig(p4, "fig4_individual_trajectories.png", w = 12, h = 7)
+
+# ── Figure 5: Appointed-counsel only robustness ───────────────────────────────
+
+appt_traj <- dp |>
+  filter(`RACE-LABEL` %in% c("Black", "White"), `ATTORNEY-TYPE` == "Appointed") |>
+  group_by(EXP_QUINTILE, Race = `RACE-LABEL`) |>
+  summarise(rate = mean(DEFERRED, na.rm = TRUE), N = n(), .groups = "drop")
+
+p5 <- ggplot(appt_traj, aes(EXP_QUINTILE, rate * 100, color = Race, group = Race)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c(Black = "#1f4e79", White = "#538135")) +
+  scale_x_continuous(breaks = 1:5, labels = paste0("Q", 1:5)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  labs(
+    title    = "Deferred Adjudication Rate — Appointed Counsel Cases Only",
+    subtitle = "Controls for private attorney effect; pattern still holds",
+    x = "Experience Quintile",
+    y = "Deferred Adjudication Rate",
+    color = NULL
+  ) +
+  theme_paper
+
+save_fig(p5, "fig5_appointed_only.png")
 
 message("\nAll figures saved to bexar_figures/")

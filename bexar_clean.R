@@ -2,7 +2,7 @@
 # Run from the directory containing the CSV files.
 # Outputs: bexar_cleaned.parquet, bexar_panel_1990_2021.parquet, bexar_cleaned.csv
 #
-# install.packages(c("tidyverse", "arrow", "lubridate", "stringr"))
+# install.packages(c("tidyverse", "arrow", "lubridate"))
 
 library(tidyverse)
 library(arrow)
@@ -172,7 +172,9 @@ df <- df |>
 if ("BOND-AMOUNT" %in% colnames(df)) {
   df <- df |>
     mutate(
-      `BOND-AMOUNT`  = as.numeric(`BOND-AMOUNT`),
+      `BOND-AMOUNT` = as.numeric(`BOND-AMOUNT`),
+      # Sentinel value >= 9,999,990 means "no bond set / missing" — treat as NA
+      `BOND-AMOUNT` = if_else(`BOND-AMOUNT` >= 9999990, NA_real_, `BOND-AMOUNT`),
       `BOND-MISSING` = as.integer(is.na(`BOND-AMOUNT`) | `BOND-AMOUNT` == 0),
       `BOND-OUTLIER` = as.integer(!is.na(`BOND-AMOUNT`) & `BOND-AMOUNT` > 1e6)
     )

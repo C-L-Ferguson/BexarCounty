@@ -3,7 +3,8 @@ install.packages(c(
   "tidyverse",
   "arrow",
   "broom",
-  "fixest",   # fast prosecutor fixed effects (optional but recommended)
-  "zoo",      # rolling averages in figures (optional)
-  "scales"    # percent formatting in figures
+  "fixest",   # fast FE logit for M3/M5 (strongly recommended)
+  "zoo",      # rolling averages in individual trajectory plots
+  "scales",   # percent formatting in figures
+  "purrr"     # map functions (included in tidyverse)
 ))
