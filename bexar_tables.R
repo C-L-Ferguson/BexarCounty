@@ -17,6 +17,29 @@ library(arrow)
 
 res <- read_csv(file.path(DATA_DIR, "bexar_model_results.csv"), show_col_types = FALSE)
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+stars <- function(p) {
+  case_when(
+    p < 0.01 ~ "***",
+    p < 0.05 ~ "**",
+    p < 0.10 ~ "*",
+    TRUE     ~ ""
+  )
+}
+
+fmt_coef <- function(est, se, p) {
+  paste0(
+    sprintf("%.4f", est), stars(p),
+    " \\\\\\ \n& (", sprintf("%.4f", se), ")"
+  )
+}
+
+write_tex <- function(lines, path) {
+  writeLines(lines, con = path)
+  message("Saved: ", path)
+}
+
 # ── Table 0: Descriptive Statistics ───────────────────────────────────────────
 
 dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
@@ -97,29 +120,6 @@ tex0 <- c(tex0,
 )
 
 write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-stars <- function(p) {
-  case_when(
-    p < 0.01 ~ "***",
-    p < 0.05 ~ "**",
-    p < 0.10 ~ "*",
-    TRUE     ~ ""
-  )
-}
-
-fmt_coef <- function(est, se, p) {
-  paste0(
-    sprintf("%.4f", est), stars(p),
-    " \\\\\\ \n& (", sprintf("%.4f", se), ")"
-  )
-}
-
-write_tex <- function(lines, path) {
-  writeLines(lines, con = path)
-  message("Saved: ", path)
-}
 
 # ── Table 1: Clean identification progression (Spec A → B → C) ───────────────
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
