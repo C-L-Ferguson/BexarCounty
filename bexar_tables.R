@@ -28,8 +28,8 @@ stars <- function(p) {
   )
 }
 
-fmt_est <- function(est, p) paste0(sprintf("%.4f", est), stars(p))
-fmt_se  <- function(se)      paste0("(", sprintf("%.4f", se), ")")
+fmt_est <- function(est, p) paste0(sprintf("%.6f", est), stars(p))
+fmt_se  <- function(se)      paste0("(", sprintf("%.6f", se), ")")
 
 write_tex <- function(lines, path) {
   writeLines(lines, con = path)
