@@ -184,39 +184,50 @@ p2 <- ggplot(both_traj, aes(EXP_QUINTILE, rate * 100, color = Race, group = Race
 save_fig(p2, "fig2_both_groups_trajectory.png")
 
 # ── Figure 3: Career start vs. end scatterplot ────────────────────────────────
+# Require at least 5 cases of each race in both Q1 and Q5 to avoid extreme rates
 
 prosecutor_gaps <- bw |>
   filter(EXP_QUINTILE %in% c(1, 5)) |>
   group_by(`INTAKE-PROSECUTOR`, EXP_QUINTILE, `RACE-LABEL`) |>
   summarise(rate = mean(DEFERRED, na.rm = TRUE), n = n(), .groups = "drop") |>
   pivot_wider(names_from = `RACE-LABEL`, values_from = c(rate, n)) |>
+  filter(!is.na(n_Black), !is.na(n_White), n_Black >= 5, n_White >= 5) |>
   mutate(gap    = (rate_White - rate_Black) * 100,
          Period = if_else(EXP_QUINTILE == 1, "Early (Q1)", "Late (Q5)")) |>
   select(`INTAKE-PROSECUTOR`, Period, gap) |>
   pivot_wider(names_from = Period, values_from = gap) |>
-  drop_na()
+  drop_na() |>
+  # Winsorize at ±30 pp for display
+  mutate(
+    `Early (Q1)` = pmax(pmin(`Early (Q1)`, 30), -30),
+    `Late (Q5)`  = pmax(pmin(`Late (Q5)`,  30), -30)
+  )
 
-n_above <- sum(prosecutor_gaps$`Late (Q5)` > prosecutor_gaps$`Early (Q1)`, na.rm = TRUE)
+n_above  <- sum(prosecutor_gaps$`Late (Q5)` > prosecutor_gaps$`Early (Q1)`, na.rm = TRUE)
 pct_above <- round(n_above / nrow(prosecutor_gaps) * 100)
 
 p3 <- ggplot(prosecutor_gaps, aes(`Early (Q1)`, `Late (Q5)`)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray60") +
+  geom_hline(yintercept = 0, color = "gray80", linewidth = 0.3) +
+  geom_vline(xintercept = 0, color = "gray80", linewidth = 0.3) +
   geom_point(alpha = 0.7, color = "#1f4e79", size = 2.5) +
-  annotate("text", x = Inf, y = -Inf,
-           label = "Below line: gap narrowed", hjust = 1.05, vjust = -0.5,
-           size = 3, color = "gray50", fontface = "italic") +
-  annotate("text", x = -Inf, y = Inf,
-           label = "Above line: gap widened", hjust = -0.05, vjust = 1.5,
-           size = 3, color = "gray50", fontface = "italic") +
+  annotate("text", x = 28, y = -28,
+           label = "Gap narrowed", hjust = 1, size = 3,
+           color = "gray50", fontface = "italic") +
+  annotate("text", x = -28, y = 28,
+           label = "Gap widened", hjust = 0, size = 3,
+           color = "gray50", fontface = "italic") +
+  coord_fixed(xlim = c(-30, 30), ylim = c(-30, 30)) +
   labs(
     title   = "Prosecutor Career Gap: Early vs. Late Career",
     x       = "White–Black Gap in Q1, Earliest Cases (pp)",
     y       = "White–Black Gap in Q5, Latest Cases (pp)",
     caption = paste0(
-      "Notes: Each dot is one prosecutor. The diagonal dashed line represents no change. ",
-      pct_above, "% of prosecutors (", n_above, " of ", nrow(prosecutor_gaps),
-      ") fall above the line, meaning their White–Black gap widened over their career. ",
-      "Sample: prosecutors with identified cases in both Q1 and Q5, 1990–2015."
+      "Notes: Each dot is one prosecutor (restricted to prosecutors with 5+ Black and ",
+      "5+ White defendants in both Q1 and Q5; n=", nrow(prosecutor_gaps), "). ",
+      "Axes winsorized at ±30 pp. The diagonal dashed line represents no change. ",
+      pct_above, "% of prosecutors fall above the line (gap widened). ",
+      "Sample: 1990–2015."
     )
   ) +
   theme_paper
@@ -224,6 +235,7 @@ p3 <- ggplot(prosecutor_gaps, aes(`Early (Q1)`, `Late (Q5)`)) +
 save_fig(p3, "fig3_career_scatterplot.png")
 
 # ── Figure 4: Individual trajectories — top 10 highest-volume prosecutors ─────
+# Use career decile bins (10 bins) rather than rolling average to smooth binary outcome
 
 top10 <- dp |>
   count(`INTAKE-PROSECUTOR`, sort = TRUE) |>
@@ -232,36 +244,40 @@ top10 <- dp |>
 
 indiv <- dp |>
   filter(`INTAKE-PROSECUTOR` %in% top10, `RACE-LABEL` %in% c("Black", "White")) |>
-  arrange(`INTAKE-PROSECUTOR`, `RACE-LABEL`, PROSECUTOR_CASE_N) |>
   group_by(`INTAKE-PROSECUTOR`, `RACE-LABEL`) |>
-  mutate(
-    roll_rate = if (requireNamespace("zoo", quietly = TRUE))
-      zoo::rollmean(DEFERRED, k = 3, fill = NA, align = "center")
-    else
-      DEFERRED
+  mutate(CAREER_DECILE = ntile(PROSECUTOR_CASE_N, 10)) |>
+  group_by(`INTAKE-PROSECUTOR`, `RACE-LABEL`, CAREER_DECILE) |>
+  summarise(
+    rate = mean(DEFERRED, na.rm = TRUE),
+    n    = n(),
+    .groups = "drop"
   ) |>
-  ungroup() |>
-  mutate(Label = str_trunc(str_extract(`INTAKE-PROSECUTOR`, "^\\S+\\s+\\S+"), 20))
+  filter(n >= 3) |>
+  mutate(
+    Label = str_trunc(str_extract(`INTAKE-PROSECUTOR`, "^\\S+\\s+\\S+"), 20),
+    Race  = factor(`RACE-LABEL`, levels = c("Black", "White"))
+  )
 
-p4 <- ggplot(indiv |> filter(!is.na(roll_rate)),
-             aes(PROSECUTOR_CASE_N, roll_rate * 100,
-                 color = `RACE-LABEL`, group = `RACE-LABEL`)) +
-  geom_line(alpha = 0.8, linewidth = 0.7) +
-  facet_wrap(~Label, nrow = 2, scales = "free_x") +
+p4 <- ggplot(indiv, aes(CAREER_DECILE, rate * 100, color = Race, group = Race)) +
+  geom_line(linewidth = 0.8, alpha = 0.9) +
+  geom_point(size = 1.5, alpha = 0.8) +
+  facet_wrap(~Label, nrow = 2, scales = "free_y") +
   scale_color_manual(values = c(Black = "#1f4e79", White = "#538135"), name = NULL) +
+  scale_x_continuous(breaks = c(1, 5, 10),
+                     labels = c("Early", "Mid", "Late")) +
   scale_y_continuous(labels = percent_format(scale = 1)) +
   labs(
     title   = "Individual Prosecutor Trajectories — Top 10 by Case Volume",
-    x       = "Career Case Number",
+    x       = "Career Stage (Early → Late)",
     y       = "Deferred Adjudication Rate (%)",
     caption = paste0(
-      "Notes: Lines show 3-case rolling-average deferred adjudication rates for Black ",
-      "(navy) and White (green) defendants handled by the 10 highest-volume prosecutors ",
-      "in the sample, 1990–2015. X-axis varies by prosecutor."
+      "Notes: Each line shows deferred adjudication rates for Black (navy) and White (green) ",
+      "defendants across 10 equal career-stage bins for the 10 highest-volume prosecutors, ",
+      "1990–2015. Bins with fewer than 3 cases omitted."
     )
   ) +
   theme_paper +
-  theme(axis.text.x = element_text(size = 7))
+  theme(axis.text.x = element_text(size = 8))
 
 save_fig(p4, "fig4_individual_trajectories.png", w = 12, h = 7)
 
