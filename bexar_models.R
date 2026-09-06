@@ -163,24 +163,34 @@ m7_list <- map(c("F1", "F2", "F3", "FS"), function(ot) {
 })
 m7 <- bind_rows(m7_list)
 
-# ── M8: Guilty plea robustness ────────────────────────────────────────────────
+# ── M8: Deferred adjudication conditional on any plea ────────────────────────
+# In Texas, deferred adjudication requires a guilty/no-contest plea, so using
+# guilty plea as an outcome confounds the plea decision with the offer decision.
+# This model restricts to cases that resolved by plea and asks whether race
+# predicts receiving deferred adjudication vs. a straight conviction.
 
 m8 <- run_logit(
-  `GUILTY-PLEA` ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
-  df |> filter(!is.na(OFFENSE_CATEGORY), !is.na(COURT)),
-  "M8_GuiltyPlea")
-
-# ── M9: DA cohort interaction ─────────────────────────────────────────────────
-
-m9 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    PROSECUTOR_CASE_N:DA_HIRE +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
-  df |> filter(!is.na(OFFENSE_CATEGORY), !is.na(COURT)),
-  "M9_DAcohort")
+  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1,
+               !is.na(OFFENSE_CATEGORY), !is.na(COURT)),
+  "M8_DeferredConditionalOnPlea")
+
+# ── M9: Straight conviction via plea ─────────────────────────────────────────
+# Complement to M8: outcome = 1 if plea resulted in straight conviction (no
+# deferred adjudication), 0 if deferred. Same plea-restricted sample.
+# A positive BLACK coefficient means Black defendants are more likely to receive
+# a straight conviction rather than deferred adjudication among plea cases.
+
+m9 <- run_logit(
+  STRAIGHT_CONVICTION ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
+  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1,
+               !is.na(OFFENSE_CATEGORY), !is.na(COURT)) |>
+    mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
+  "M9_StraightConviction")
 
 # ── Export key coefficient table ──────────────────────────────────────────────
 # Primary table: interaction coefficients across M1–M5
