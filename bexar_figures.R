@@ -38,7 +38,8 @@ theme_paper <- theme_minimal(base_size = 12) +
 
 save_fig <- function(p, name, w = 8, h = 5) {
   path <- file.path(FIG_DIR, name)
-  ggsave(path, p, width = w, height = h, dpi = 150)
+  ggsave(path, p + theme(plot.margin = margin(5, 5, 20, 5, "mm")),
+         width = w, height = h, dpi = 150)
   message("Saved: ", path)
 }
 
@@ -258,7 +259,7 @@ p3 <- ggplot(prosecutor_gaps, aes(`Early (Q1)`, `Late (Q5)`)) +
   ) +
   theme_paper
 
-save_fig(p3, "fig3_career_scatterplot.png")
+save_fig(p3, "fig3_career_scatterplot.png", h = 8)
 
 # ── Figure 4: Individual trajectories — top 10 highest-volume prosecutors ─────
 # Use career decile bins (10 bins) rather than rolling average to smooth binary outcome
@@ -316,7 +317,7 @@ p4 <- ggplot(indiv, aes(CAREER_DECILE, rate * 100, color = Race, group = Race)) 
   theme_paper +
   theme(axis.text.x = element_text(size = 8))
 
-save_fig(p4, "fig4_individual_trajectories.png", w = 12, h = 7)
+save_fig(p4, "fig4_individual_trajectories.png", w = 12, h = 8)
 
 # ── Figure 5: Appointed-counsel only robustness ───────────────────────────────
 
