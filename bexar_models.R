@@ -6,17 +6,17 @@
 # Key exposure: PROSECUTOR_CASE_N × RACE interactions
 # The interaction coefficient tests whether the White-Black gap widens with experience.
 #
-# Models M1–M9 per handoff v6 Section 5.
-# Output: bexar_model_results.csv, bexar_ols_sentence.csv
+# Main table specs: SpecA (offense controls), SpecB (+ year FE), SpecC (prosecutor FE)
+# Robustness: M1 (baseline), M2 (offense FE), M6 (appointed only),
+#             M7 (within offense type), M8 (plea-conditional), M9 (straight conviction)
+# Output: bexar_model_results.csv
 
 DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)
 library(broom)
-
-has_fixest <- requireNamespace("fixest", quietly = TRUE)
-if (!has_fixest) message("NOTE: install fixest for M3/M5/M7/M8/M9. Falling back to glm.")
+library(fixest)
 
 dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
 
@@ -25,32 +25,29 @@ dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet
 df <- dp |>
   filter(`RACE-LABEL` %in% c("Black", "White", "Latino")) |>
   mutate(
-    BLACK  = as.integer(`RACE-LABEL` == "Black"),
-    LATINO = as.integer(`RACE-LABEL` == "Latino"),
-    RACE   = fct_relevel(`RACE-LABEL`, "White"),     # reference: White
-    OFFENSE_TYPE = fct_relevel(`OFFENSE-CLASS`, "F3"), # reference: F3
-    SEX    = factor(`SEX-LABEL`),
-    APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed"),
-    COURT  = factor(COURT),
+    BLACK        = as.integer(`RACE-LABEL` == "Black"),
+    LATINO       = as.integer(`RACE-LABEL` == "Latino"),
+    RACE         = fct_relevel(`RACE-LABEL`, "White"),
+    OFFENSE_TYPE = fct_relevel(`OFFENSE-CLASS`, "F3"),
+    SEX          = factor(`SEX-LABEL`),
+    APPOINTED    = as.integer(`ATTORNEY-TYPE` == "Appointed"),
+    COURT        = factor(COURT),
     CASE_YEAR_FE = factor(`CASE-YEAR`),
     PROSECUTOR   = factor(`INTAKE-PROSECUTOR`),
-    DA_HIRE = factor(DA_AT_HIRE),
-    BOND_LOG = log(`BOND-AMOUNT` + 1),   # NA where bond missing/sentinel
-    # Normalize experience within prosecutor (0–1) for interpretable coefficients
-    CASE_N_NORM = PROSECUTOR_CASE_N / max(PROSECUTOR_CASE_N, na.rm = TRUE)
+    BOND_LOG     = log(`BOND-AMOUNT` + 1)
   )
 
 # Drop prosecutors first observed in 1990 (left-censored career counts)
-# Prosecutors appearing in 1991+ have PROSECUTOR_CASE_N = 1 as their true career start.
 fresh_prosecutors <- df |>
   group_by(`INTAKE-PROSECUTOR`) |>
   summarise(first_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop") |>
   filter(first_year >= 1991) |>
   pull(`INTAKE-PROSECUTOR`)
 
-df        <- df        |> filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors)
-df_atty   <- df |> filter(`ATTORNEY-TYPE` %in% c("Appointed", "Hired"))
-df_felony <- df |> filter(`OFFENSE-CLASS` %in% c("F1", "F2", "F3", "FS"))
+df <- df |> filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors)
+
+message("Analysis sample: ", nrow(df), " cases, ",
+        n_distinct(df$`INTAKE-PROSECUTOR`), " prosecutors (1991+ only)")
 
 # Helper: run logit, return tidy table
 run_logit <- function(formula, data, label) {
@@ -61,19 +58,15 @@ run_logit <- function(formula, data, label) {
     error = function(e) { message("  ERROR: ", e$message); NULL }
   )
   if (is.null(fit)) return(tibble(model = label))
-  print(summary(fit))
   tidy(fit, conf.int = TRUE) |> mutate(OR = exp(estimate), model = label)
 }
 
-run_feglm <- function(formula, data, fe, label) {
+run_feglm <- function(formula, data, fe_vars, label) {
   message("\n", strrep("=", 60))
   message("Model: ", label, "  (N = ", nrow(data), ")")
-  if (!has_fixest) {
-    message("  fixest not installed — skipping")
-    return(tibble(model = label))
-  }
   fit <- tryCatch(
-    fixest::feglm(formula, data = data, fixef = fe, family = "logit"),
+    feglm(formula, data = data, fixef = fe_vars, family = binomial(),
+          fixef.tol = 1e-4, fixef.iter = 50, iter = 50),
     error = function(e) { message("  ERROR: ", e$message); NULL }
   )
   if (is.null(fit)) return(tibble(model = label))
@@ -82,14 +75,13 @@ run_feglm <- function(formula, data, fe, label) {
 }
 
 # ── M1: Baseline — no controls ────────────────────────────────────────────────
-# Key: interaction BLACK*PROSECUTOR_CASE_N — positive = gap widens with experience
 
 m1 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N,
   df, "M1_Baseline")
 
-# ── M2: Add offense type and category FE ──────────────────────────────────────
+# ── M2: Offense type and category controls ────────────────────────────────────
 
 m2 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
@@ -98,119 +90,85 @@ m2 <- run_logit(
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   "M2_OffenseFE")
 
-# ── M3: Add court FE and case year FE ─────────────────────────────────────────
+# ── Spec A: Clean baseline — offense + attorney controls (main table col 1) ───
 
-if (has_fixest) {
-  m3 <- run_feglm(
-    DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-      BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-      OFFENSE_TYPE + OFFENSE_CATEGORY,
-    df |> filter(!is.na(OFFENSE_CATEGORY), !is.na(COURT), !is.na(CASE_YEAR_FE)),
-    fe = c("COURT", "CASE_YEAR_FE"),
-    "M3_CourtYearFE")
-} else {
-  m3 <- run_logit(
-    DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-      BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-      OFFENSE_TYPE + OFFENSE_CATEGORY + COURT + CASE_YEAR_FE,
-    df |> filter(!is.na(OFFENSE_CATEGORY), !is.na(COURT)),
-    "M3_CourtYearFE")
-}
-
-# ── M4: Full primary model ────────────────────────────────────────────────────
-# Add attorney type. Bond: run with and without to check stability.
-
-m4_no_bond <- run_logit(
+specA <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
-  df |> filter(!is.na(OFFENSE_CATEGORY), !is.na(COURT)),
-  "M4_Full_NoBond")
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY)),
+  "SpecA_OffenseOnly")
 
-m4_bond <- run_logit(
+# ── Spec B: Add case year FE (main table col 2) ───────────────────────────────
+# Note: CASE_YEAR_FE is collinear with PROSECUTOR_CASE_N by construction;
+# interaction surviving here is a conservative test.
+
+specB <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE + BOND_LOG,
-  df |> filter(!is.na(OFFENSE_CATEGORY), !is.na(COURT), !is.na(BOND_LOG)),
-  "M4_Full_WithBond")
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+  df |> filter(!is.na(OFFENSE_CATEGORY)),
+  "SpecB_YearFE")
 
-# ── M5: Prosecutor fixed effects ──────────────────────────────────────────────
-# NOTE: PROSECUTOR_FE and PROSECUTOR_CASE_N are collinear by construction.
-# fixest handles this via within-group demeaning; interpret carefully.
+# ── Spec C: Prosecutor fixed effects (main table col 3) ───────────────────────
+# Within-prosecutor identification; answers selection critique.
 
-if (has_fixest) {
-  m5 <- run_feglm(
-    DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-      BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-      OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
-    df |> filter(!is.na(OFFENSE_CATEGORY)),
-    fe = "PROSECUTOR",
-    "M5_ProsecutorFE")
-} else {
-  message("\nM5 requires fixest — skipping")
-  m5 <- tibble(model = "M5_ProsecutorFE_SKIPPED")
-}
+specC <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY)),
+  fe_vars = "PROSECUTOR",
+  "SpecC_ProsecutorFE")
 
-# ── M6: Appointed counsel only (key robustness) ───────────────────────────────
+# ── M6: Appointed counsel only (robustness) ───────────────────────────────────
 
 m6 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + COURT + CASE_YEAR_FE,
-  df |> filter(`ATTORNEY-TYPE` == "Appointed", !is.na(OFFENSE_CATEGORY), !is.na(COURT)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY + CASE_YEAR_FE,
+  df |> filter(`ATTORNEY-TYPE` == "Appointed", !is.na(OFFENSE_CATEGORY)),
   "M6_AppointedOnly")
 
-# ── M7: Within offense type ───────────────────────────────────────────────────
+# ── M7: Within offense type (robustness) ──────────────────────────────────────
 
 m7_list <- map(c("F1", "F2", "F3", "FS"), function(ot) {
-  sub <- df |> filter(`OFFENSE-CLASS` == ot, !is.na(OFFENSE_CATEGORY), !is.na(COURT))
+  sub <- df |> filter(`OFFENSE-CLASS` == ot, !is.na(OFFENSE_CATEGORY))
   run_logit(
     DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
       BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-      OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
+      OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
     sub, paste0("M7_", ot, "_only"))
 })
 m7 <- bind_rows(m7_list)
 
-# ── M8: Deferred adjudication conditional on any plea ────────────────────────
-# In Texas, deferred adjudication requires a guilty/no-contest plea, so using
-# guilty plea as an outcome confounds the plea decision with the offer decision.
-# This model restricts to cases that resolved by plea and asks whether race
-# predicts receiving deferred adjudication vs. a straight conviction.
+# ── M8: Deferred conditional on any plea (robustness) ────────────────────────
 
 m8 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
-  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1,
-               !is.na(OFFENSE_CATEGORY), !is.na(COURT)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY)),
   "M8_DeferredConditionalOnPlea")
 
-# ── M9: Straight conviction via plea ─────────────────────────────────────────
-# Complement to M8: outcome = 1 if plea resulted in straight conviction (no
-# deferred adjudication), 0 if deferred. Same plea-restricted sample.
-# A positive BLACK coefficient means Black defendants are more likely to receive
-# a straight conviction rather than deferred adjudication among plea cases.
+# ── M9: Straight conviction via plea (robustness) ─────────────────────────────
 
 m9 <- run_logit(
   STRAIGHT_CONVICTION ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + COURT + CASE_YEAR_FE,
-  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1,
-               !is.na(OFFENSE_CATEGORY), !is.na(COURT)) |>
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY)) |>
     mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
   "M9_StraightConviction")
 
-# ── Export key coefficient table ──────────────────────────────────────────────
-# Primary table: interaction coefficients across M1–M5
+# ── Export ────────────────────────────────────────────────────────────────────
 
-all_results <- bind_rows(m1, m2, m3, m4_no_bond, m4_bond, m5, m6, m7, m8, m9) |>
+all_results <- bind_rows(m1, m2, specA, specB, specC, m6, m7, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
 message("\nSaved: bexar_model_results.csv")
 
-# Focal coefficients for progression table (M1 through M5)
 message("\n── KEY COEFFICIENTS: BLACK × PROSECUTOR_CASE_N ──")
 all_results |>
   filter(str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK")) |>
