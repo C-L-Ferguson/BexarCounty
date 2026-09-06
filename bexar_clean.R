@@ -74,56 +74,50 @@ df <- df |>
 
 # ── 5. Recode RACE ────────────────────────────────────────────────────────────
 
-df <- df |>
-  mutate(`RACE-LABEL` = case_match(
-    RACE,
-    "B" ~ "Black",
-    "W" ~ "White",
-    "L" ~ "Latino",
-    .default = "Other/Unknown"
-  ))
+df[["RACE-LABEL"]] <- case_when(
+  df[["RACE"]] == "B" ~ "Black",
+  df[["RACE"]] == "W" ~ "White",
+  df[["RACE"]] == "L" ~ "Latino",
+  TRUE ~ "Other/Unknown"
+)
 
 # ── 6. Recode SEX ─────────────────────────────────────────────────────────────
 
-df <- df |>
-  mutate(`SEX-LABEL` = case_match(
-    SEX,
-    "M" ~ "M",
-    "F" ~ "F",
-    .default = "Unknown"
-  ))
+df[["SEX-LABEL"]] <- case_when(
+  df[["SEX"]] == "M" ~ "M",
+  df[["SEX"]] == "F" ~ "F",
+  TRUE ~ "Unknown"
+)
 
 # ── 7. Recode ATTORNEY-APPOINTED-RETAINED ────────────────────────────────────
 
-df <- df |>
-  mutate(`ATTORNEY-TYPE` = case_match(
-    `ATTORNEY-APPOINTED-RETAINED`,
-    "A" ~ "Appointed",
-    "H" ~ "Hired",
-    "S" ~ "ProSe",
-    .default = NA_character_
-  ))
+df[["ATTORNEY-TYPE"]] <- case_when(
+  df[["ATTORNEY-APPOINTED-RETAINED"]] == "A" ~ "Appointed",
+  df[["ATTORNEY-APPOINTED-RETAINED"]] == "H" ~ "Hired",
+  df[["ATTORNEY-APPOINTED-RETAINED"]] == "S" ~ "ProSe",
+  TRUE ~ NA_character_
+)
 
 # ── 8. Recode OFFENSE-TYPE ───────────────────────────────────────────────────
 
-df <- df |>
-  mutate(
-    `OFFENSE-CLASS` = case_match(
-      `OFFENSE-TYPE`,
-      "F1" ~ "F1",
-      "F2" ~ "F2",
-      "F3" ~ "F3",
-      "FS" ~ "FS",
-      c("MA", "MB", "MC", "M ") ~ "Misdemeanor",
-      .default = "Other Felony"
-    ),
-    `OFFENSE-SEVERITY` = case_match(
-      `OFFENSE-CLASS`,
-      "F1" ~ 1L, "F2" ~ 2L, "F3" ~ 3L, "FS" ~ 4L,
-      "Other Felony" ~ 5L, "Misdemeanor" ~ 6L,
-      .default = NA_integer_
-    )
-  )
+df[["OFFENSE-CLASS"]] <- case_when(
+  df[["OFFENSE-TYPE"]] == "F1" ~ "F1",
+  df[["OFFENSE-TYPE"]] == "F2" ~ "F2",
+  df[["OFFENSE-TYPE"]] == "F3" ~ "F3",
+  df[["OFFENSE-TYPE"]] == "FS" ~ "FS",
+  df[["OFFENSE-TYPE"]] %in% c("MA", "MB", "MC", "M ") ~ "Misdemeanor",
+  TRUE ~ "Other Felony"
+)
+
+df[["OFFENSE-SEVERITY"]] <- case_when(
+  df[["OFFENSE-CLASS"]] == "F1" ~ 1L,
+  df[["OFFENSE-CLASS"]] == "F2" ~ 2L,
+  df[["OFFENSE-CLASS"]] == "F3" ~ 3L,
+  df[["OFFENSE-CLASS"]] == "FS" ~ 4L,
+  df[["OFFENSE-CLASS"]] == "Other Felony" ~ 5L,
+  df[["OFFENSE-CLASS"]] == "Misdemeanor"  ~ 6L,
+  TRUE ~ NA_integer_
+)
 
 # ── 9. Parse ORIGINAL-SENTENCE → total days ──────────────────────────────────
 
