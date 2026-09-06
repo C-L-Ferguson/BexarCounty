@@ -128,7 +128,7 @@ specC <- run_feglm(
 m6 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + CASE_YEAR_FE,
+    OFFENSE_TYPE + OFFENSE_CATEGORY,
   df |> filter(`ATTORNEY-TYPE` == "Appointed", !is.na(OFFENSE_CATEGORY)),
   "M6_AppointedOnly")
 
