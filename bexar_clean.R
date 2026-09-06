@@ -148,8 +148,28 @@ if ("ORIGINAL-SENTENCE" %in% colnames(df)) {
 
 # ── 10. Outcome indicator variables ──────────────────────────────────────────
 
-disp_col <- if ("DISPOSITION-DESC" %in% colnames(df)) `DISPOSITION-DESC` else ""
-judg_col <- if ("JUDGEMENT-DESC"   %in% colnames(df)) `JUDGEMENT-DESC`   else ""
+# Detect actual column names (case-insensitive, handle spaces vs dashes)
+all_cols <- colnames(df)
+disp_col <- all_cols[str_detect(str_to_upper(all_cols), "DISPOSITION.*DESC")][1]
+judg_col <- all_cols[str_detect(str_to_upper(all_cols), "JUDG.*DESC")][1]
+
+if (is.na(disp_col)) {
+  message("WARNING: No DISPOSITION-DESC column found. DEFERRED/DISMISSED/GUILTY-PLEA will be NA.")
+  df$`DISPOSITION-DESC` <- NA_character_
+  disp_col <- "DISPOSITION-DESC"
+}
+if (is.na(judg_col)) {
+  df$`JUDGEMENT-DESC` <- NA_character_
+  judg_col <- "JUDGEMENT-DESC"
+}
+
+# Standardize to expected names
+if (disp_col != "DISPOSITION-DESC") {
+  df <- df |> rename(`DISPOSITION-DESC` = all_of(disp_col))
+}
+if (judg_col != "JUDGEMENT-DESC") {
+  df <- df |> rename(`JUDGEMENT-DESC` = all_of(judg_col))
+}
 
 df <- df |>
   mutate(
