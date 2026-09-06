@@ -2,12 +2,15 @@
 # Requires: bexar_prosecutor_panel_1990_2015.parquet (from bexar_prosecutor_panel.R)
 # Output: bexar_figures/ directory with PNG files
 
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+FIG_DIR  <- file.path(DATA_DIR, "bexar_figures")
+
 library(tidyverse)
 library(arrow)
 
-dir.create("bexar_figures", showWarnings = FALSE)
+dir.create(FIG_DIR, showWarnings = FALSE, recursive = TRUE)
 
-dp <- read_parquet("bexar_prosecutor_panel_1990_2015.parquet")
+dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
 
 COLORS <- c(Black = "#1f4e79", Latino = "#c55a11", White = "#538135")
 RACE_ORDER <- c("Black", "Latino", "White")
@@ -23,7 +26,7 @@ theme_paper <- theme_minimal(base_size = 12) +
   )
 
 save_fig <- function(p, name, w = 8, h = 5) {
-  path <- file.path("bexar_figures", name)
+  path <- file.path(FIG_DIR, name)
   ggsave(path, p, width = w, height = h, dpi = 150)
   message("Saved: ", path)
 }

@@ -2,11 +2,13 @@
 # Requires: bexar_prosecutor_panel_1990_2015.parquet (from bexar_prosecutor_panel.R)
 # Outputs: bexar_summary_table.csv, printed diagnostics
 
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+
 library(tidyverse)
 library(arrow)
 
-dp    <- read_parquet("bexar_prosecutor_panel_1990_2015.parquet")
-panel <- read_parquet("bexar_panel_1990_2021.parquet")  # for overall context
+dp    <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
+panel <- read_parquet(file.path(DATA_DIR, "bexar_panel_1990_2021.parquet"))
 
 primary <- dp |> filter(`RACE-LABEL` %in% c("Black", "White", "Latino"))
 
@@ -44,7 +46,7 @@ summary_table <- panel |>
   ) |>
   arrange(Decade, Race)
 
-write_csv(summary_table, "bexar_summary_table.csv")
+write_csv(summary_table, file.path(DATA_DIR, "bexar_summary_table.csv"))
 message("Saved: bexar_summary_table.csv")
 print(summary_table, n = Inf)
 

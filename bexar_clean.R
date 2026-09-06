@@ -8,11 +8,14 @@ library(tidyverse)
 library(arrow)
 library(lubridate)
 
-DATA_DIR <- "."  # adjust if CSVs are elsewhere
+DATA_DIR  <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+OUTPUT_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"  # where .parquet/.csv outputs go
+
+dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # ── 1. Load and merge ─────────────────────────────────────────────────────────
 
-files <- list.files(DATA_DIR, pattern = "^DC_cjjorad_.*\\.csv$", full.names = TRUE)
+files <- list.files(DATA_DIR, pattern = "^DC_cjjorad_", full.names = TRUE)
 if (length(files) == 0) stop("No DC_cjjorad_*.csv files found in ", DATA_DIR)
 message("Found ", length(files), " CSV files: ", paste(basename(files), collapse = ", "))
 
@@ -200,9 +203,9 @@ message("Historical records (pre-1990): ", nrow(df_historical))
 panel <- df |> filter(`CASE-YEAR` >= 1990, `CASE-YEAR` <= 2021)
 message("Main panel (1990-2021): ", nrow(panel))
 
-write_csv(df, "bexar_cleaned.csv")
-write_parquet(df,    "bexar_cleaned.parquet")
-write_parquet(panel, "bexar_panel_1990_2021.parquet")
+write_csv(df,    file.path(OUTPUT_DIR, "bexar_cleaned.csv"))
+write_parquet(df,    file.path(OUTPUT_DIR, "bexar_cleaned.parquet"))
+write_parquet(panel, file.path(OUTPUT_DIR, "bexar_panel_1990_2021.parquet"))
 message("Saved: bexar_cleaned.csv, bexar_cleaned.parquet, bexar_panel_1990_2021.parquet")
 
 # ── 14. Quick sanity checks ───────────────────────────────────────────────────

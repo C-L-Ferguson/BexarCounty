@@ -7,10 +7,12 @@
 #   PROSECUTOR_CAREER_YEAR — case year minus first case year for that prosecutor
 #   EXP_QUINTILE        — quintile of PROSECUTOR_CASE_N within each prosecutor
 
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"  # all inputs and outputs here
+
 library(tidyverse)
 library(arrow)
 
-panel <- read_parquet("bexar_panel_1990_2021.parquet")
+panel <- read_parquet(file.path(DATA_DIR, "bexar_panel_1990_2021.parquet"))
 
 # ── 1. Prosecutor data window: 1990–2015 ──────────────────────────────────────
 # INTAKE-PROSECUTOR is blank ~100% pre-1990 and 63–76% from 2016 onward.
@@ -40,7 +42,7 @@ blank_by_year <- panel |>
     .groups = "drop"
   )
 
-write_csv(blank_by_year, "bexar_prosecutor_blank_by_year.csv")
+write_csv(blank_by_year, file.path(DATA_DIR, "bexar_prosecutor_blank_by_year.csv"))
 message("Saved: bexar_prosecutor_blank_by_year.csv")
 print(blank_by_year, n = Inf)
 
@@ -139,7 +141,7 @@ prosecutor_table <- dp |>
   ) |>
   arrange(desc(N_cases))
 
-write_csv(prosecutor_table, "bexar_prosecutor_table.csv")
+write_csv(prosecutor_table, file.path(DATA_DIR, "bexar_prosecutor_table.csv"))
 message("Saved: bexar_prosecutor_table.csv  (", nrow(prosecutor_table), " prosecutors)")
 print(prosecutor_table, n = 20)
 
@@ -150,7 +152,7 @@ cell_table <- dp |>
   count(`RACE-LABEL`, `OFFENSE-CLASS`, EXP_QUINTILE, name = "N") |>
   mutate(FLAG_SMALL = N < 30)
 
-write_csv(cell_table, "bexar_cell_size_table.csv")
+write_csv(cell_table, file.path(DATA_DIR, "bexar_cell_size_table.csv"))
 n_small <- sum(cell_table$FLAG_SMALL)
 message("Cell size table saved. Small cells (<30): ", n_small)
 if (n_small > 0) {
@@ -160,7 +162,7 @@ if (n_small > 0) {
 
 # ── 9. Export ─────────────────────────────────────────────────────────────────
 
-write_parquet(dp, "bexar_prosecutor_panel_1990_2015.parquet")
+write_parquet(dp, file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
 message("\nSaved: bexar_prosecutor_panel_1990_2015.parquet  (", nrow(dp), " cases)")
 
 # ── 10. Preliminary findings check (Section 3 of handoff) ─────────────────────

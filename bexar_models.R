@@ -9,6 +9,8 @@
 # Models M1–M9 per handoff v6 Section 5.
 # Output: bexar_model_results.csv, bexar_ols_sentence.csv
 
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+
 library(tidyverse)
 library(arrow)
 library(broom)
@@ -16,7 +18,7 @@ library(broom)
 has_fixest <- requireNamespace("fixest", quietly = TRUE)
 if (!has_fixest) message("NOTE: install fixest for M3/M5/M7/M8/M9. Falling back to glm.")
 
-dp <- read_parquet("bexar_prosecutor_panel_1990_2015.parquet")
+dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
 
 # ── Analysis frame ────────────────────────────────────────────────────────────
 
@@ -186,7 +188,7 @@ m9 <- run_logit(
 all_results <- bind_rows(m1, m2, m3, m4_no_bond, m4_bond, m5, m6, m7, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
-write_csv(all_results, "bexar_model_results.csv")
+write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
 message("\nSaved: bexar_model_results.csv")
 
 # Focal coefficients for progression table (M1 through M5)
