@@ -254,7 +254,13 @@ indiv <- dp |>
   ) |>
   filter(n >= 3) |>
   mutate(
-    Label = str_trunc(str_extract(`INTAKE-PROSECUTOR`, "^\\S+\\s+\\S+"), 20),
+    # Convert "LAST, FIRST" to "F.L." initials to anonymize prosecutors
+    Label = {
+      nm <- `INTAKE-PROSECUTOR`
+      last  <- str_extract(nm, "^[^,]+")
+      first <- str_extract(nm, "(?<=,\\s)\\S+")
+      paste0(str_sub(first, 1, 1), ".", str_sub(last, 1, 1), ".")
+    },
     Race  = factor(`RACE-LABEL`, levels = c("Black", "White"))
   )
 
