@@ -136,21 +136,29 @@ m6 <- run_logit(
 
 m7_list <- map(c("F1", "F2", "F3", "FS"), function(ot) {
   sub <- df |> filter(`OFFENSE-CLASS` == ot, !is.na(OFFENSE_CATEGORY))
-  run_logit(
-    DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-      BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-      OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
-    sub, paste0("M7_", ot, "_only"))
+  tryCatch(
+    run_logit(
+      DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+        BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+        OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+      sub, paste0("M7_", ot, "_only")),
+    error = function(e) {
+      message("  M7_", ot, " skipped: ", e$message)
+      tibble(model = paste0("M7_", ot, "_only_SKIPPED"))
+    }
+  )
 })
 m7 <- bind_rows(m7_list)
 
 # ── M8: Deferred conditional on any plea (robustness) ────────────────────────
 
+df_plea <- df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY))
+
 m8 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
-  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY)),
+  df_plea,
   "M8_DeferredConditionalOnPlea")
 
 # ── M9: Straight conviction via plea (robustness) ─────────────────────────────
@@ -159,8 +167,7 @@ m9 <- run_logit(
   STRAIGHT_CONVICTION ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
-  df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY)) |>
-    mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
+  df_plea |> mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
   "M9_StraightConviction")
 
 # ── Export ────────────────────────────────────────────────────────────────────
