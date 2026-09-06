@@ -120,7 +120,7 @@ write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
 # ── Table 1: Clean identification progression (Spec A → B → C) ───────────────
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
 
-model_order <- c("SpecA_OffenseOnly", "SpecB_YearFE", "SpecC_ProsecutorFE")
+model_order <- c("SpecA_OffenseOnly", "SpecB_YearFE", "SpecC_ProsecutorFE", "SpecC_WithPriors")
 focal_rows  <- c("Black $\\times$ Career Case N",
                  "Latino $\\times$ Career Case N",
                  "Black", "Latino", "Career Case N")
@@ -150,7 +150,7 @@ t1_est <- table_data |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---"))
+  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---", SpecC_WithPriors = "---"))
 
 t1_se <- table_data |>
   filter(term_clean %in% focal_rows) |>
@@ -158,7 +158,7 @@ t1_se <- table_data |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = ""))
+  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = "", SpecC_WithPriors = ""))
 
 message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u2550\u2550")
 print(t1_est, n = Inf)
@@ -169,10 +169,10 @@ tex1 <- c(
   "\\centering",
   "\\caption{Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients}",
   "\\label{tab:main}",
-  "\\begin{tabular}{lccc}",
+  "\\begin{tabular}{lcccc}",
   "\\hline\\hline",
-  " & (1) & (2) & (3) \\\\",
-  " & Offense + Attorney & $+$ Year FE & Prosecutor FE \\\\",
+  " & (1) & (2) & (3) & (4) \\\\",
+  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors \\\\",
   "\\hline"
 )
 
@@ -181,24 +181,28 @@ for (i in seq_len(nrow(t1_est))) {
   s <- t1_se[i, ]
   tex1 <- c(tex1,
     paste0(e$term_clean, " & ", e$SpecA_OffenseOnly,
-           " & ", e$SpecB_YearFE, " & ", e$SpecC_ProsecutorFE, " \\\\"),
+           " & ", e$SpecB_YearFE, " & ", e$SpecC_ProsecutorFE,
+           " & ", e$SpecC_WithPriors, " \\\\"),
     paste0(" & ", s$SpecA_OffenseOnly,
-           " & ", s$SpecB_YearFE, " & ", s$SpecC_ProsecutorFE, " \\\\"),
-    "& & & \\\\"
+           " & ", s$SpecB_YearFE, " & ", s$SpecC_ProsecutorFE,
+           " & ", s$SpecC_WithPriors, " \\\\"),
+    "& & & & \\\\"
   )
 }
 
 tex1 <- c(tex1,
   "\\hline",
-  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & Yes \\\\",
-  "Case year FE & No & Yes & No \\\\",
-  "Prosecutor FE & No & No & Yes \\\\",
-  "Sample & 1991+ & 1991+ & 1991+ \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes & Yes \\\\",
+  "Case year FE & No & Yes & No & No \\\\",
+  "Prosecutor FE & No & No & Yes & Yes \\\\",
+  "Defendant case $N$ & No & No & No & Yes \\\\",
+  "Sample & 1991+ & 1991+ & 1991+ & 1991+ \\\\",
   "\\hline\\hline",
-  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize Standard errors in parentheses. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Standard errors in parentheses. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
