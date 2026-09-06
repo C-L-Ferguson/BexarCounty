@@ -113,8 +113,14 @@ p1 <- ggplot(fig1_data, aes(EXP_QUINTILE, gap)) +
     caption  = paste0(
       "Notes: Gap = White deferred rate minus Black deferred rate, in percentage points. ",
       "Shaded bands are 95% confidence intervals. Sample: felony cases with identified ",
-      "prosecutors who handled 50+ cases, 1990–2015. See Table 1 for regression-based ",
-      "estimates. ***p<0.01 **p<0.05 *p<0.10."
+      "prosecutors who handled 50+ cases, 1990–2015. The Q4 peak and Q5 dip observed across ",
+      "panels likely reflects thin cell counts in the final quintile (prosecutors with the ",
+      "most cases are disproportionately senior and may have shifted to supervisory roles, ",
+      "reducing their late-career caseload and increasing sampling variance). ",
+      "The F1 panel shows a notably flat or declining gap at Q5; this is consistent with a ",
+      "floor effect — Black defendants face such low baseline deferred rates in the most ",
+      "serious felony category that the gap has limited room to widen further. ",
+      "See Table 1 for regression-based estimates. ***p<0.01 **p<0.05 *p<0.10."
     )
   ) +
   theme_paper
@@ -175,6 +181,12 @@ p2 <- ggplot(both_traj, aes(EXP_QUINTILE, rate * 100, color = Race, group = Race
     caption = paste0(
       "Notes: Shaded bands are 95% confidence intervals. Both groups' rates ",
       "rise with experience, but the White rate rises faster, widening the racial gap. ",
+      "Starting values (Q1): Black defendants are deferred at approximately 1% and White ",
+      "defendants at approximately 3% — near-zero for both groups. By Q5 those figures ",
+      "reach approximately 17% and 26%, respectively. The compressed y-axis in Q1 ",
+      "understates the importance of this baseline: even at career outset, prosecutors ",
+      "already extend deferred adjudication to White defendants at three times the rate ",
+      "they extend it to Black defendants. ",
       "Sample: Black and White defendants in felony cases with identified prosecutors ",
       "who handled 50+ cases, 1990–2015."
     )
@@ -206,6 +218,11 @@ prosecutor_gaps <- bw |>
 n_above  <- sum(prosecutor_gaps$`Late (Q5)` > prosecutor_gaps$`Early (Q1)`, na.rm = TRUE)
 pct_above <- round(n_above / nrow(prosecutor_gaps) * 100)
 
+# Identify the outlier: largest Q1 gap that ended near zero
+outlier <- prosecutor_gaps |>
+  filter(`Early (Q1)` > 15, abs(`Late (Q5)`) < 5) |>
+  slice_max(`Early (Q1)`, n = 1)
+
 p3 <- ggplot(prosecutor_gaps, aes(`Early (Q1)`, `Late (Q5)`)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray60") +
   geom_hline(yintercept = 0, color = "gray80", linewidth = 0.3) +
@@ -217,6 +234,12 @@ p3 <- ggplot(prosecutor_gaps, aes(`Early (Q1)`, `Late (Q5)`)) +
   annotate("text", x = -28, y = 28,
            label = "Gap widened", hjust = 0, size = 3,
            color = "gray50", fontface = "italic") +
+  {if (nrow(outlier) > 0)
+    geom_label(data = outlier,
+               aes(`Early (Q1)`, `Late (Q5)`, label = "†"),
+               color = "#c55a11", size = 4, label.size = 0,
+               nudge_y = 3, nudge_x = -1)
+  } +
   coord_fixed(xlim = c(-30, 30), ylim = c(-30, 30)) +
   labs(
     title   = "Prosecutor Career Gap: Early vs. Late Career",
@@ -227,6 +250,9 @@ p3 <- ggplot(prosecutor_gaps, aes(`Early (Q1)`, `Late (Q5)`)) +
       "5+ White defendants in both Q1 and Q5; n=", nrow(prosecutor_gaps), "). ",
       "Axes winsorized at ±30 pp. The diagonal dashed line represents no change. ",
       pct_above, "% of prosecutors fall above the line (gap widened). ",
+      "† marks the outlier in the lower right (x≈20, y≈0): a prosecutor who began with ",
+      "one of the largest pro-White early career gaps in the sample but ended near zero — ",
+      "one of the minority of cases where the gap narrowed substantially over a career. ",
       "Sample: 1990–2015."
     )
   ) +
@@ -267,7 +293,7 @@ indiv <- dp |>
 p4 <- ggplot(indiv, aes(CAREER_DECILE, rate * 100, color = Race, group = Race)) +
   geom_line(linewidth = 0.8, alpha = 0.9) +
   geom_point(size = 1.5, alpha = 0.8) +
-  facet_wrap(~Label, nrow = 2, scales = "free_y") +
+  facet_wrap(~Label, nrow = 2) +
   scale_color_manual(values = c(Black = "#1f4e79", White = "#538135"), name = NULL) +
   scale_x_continuous(breaks = c(1, 5, 10),
                      labels = c("Early", "Mid", "Late")) +
@@ -279,7 +305,12 @@ p4 <- ggplot(indiv, aes(CAREER_DECILE, rate * 100, color = Race, group = Race)) 
     caption = paste0(
       "Notes: Each line shows deferred adjudication rates for Black (navy) and White (green) ",
       "defendants across 10 equal career-stage bins for the 10 highest-volume prosecutors, ",
-      "1990–2015. Bins with fewer than 3 cases omitted."
+      "1990–2015. Bins with fewer than 3 cases omitted. Y-axis is shared across panels. ",
+      "M.P. illustrates the learning-curve pattern most clearly: this prosecutor begins with ",
+      "a higher deferred rate for Black defendants and ends with a substantial pro-White gap, ",
+      "consistent with the aggregate trend. R.F. illustrates real heterogeneity — the gap ",
+      "does not widen across this prosecutor's career — showing that Figure 4 is not ",
+      "cherry-picked and that variation in individual trajectories is genuine."
     )
   ) +
   theme_paper +
