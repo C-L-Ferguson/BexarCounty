@@ -28,12 +28,8 @@ stars <- function(p) {
   )
 }
 
-fmt_coef <- function(est, se, p) {
-  paste0(
-    sprintf("%.4f", est), stars(p),
-    " \\\\\\ \n& (", sprintf("%.4f", se), ")"
-  )
-}
+fmt_est <- function(est, p) paste0(sprintf("%.4f", est), stars(p))
+fmt_se  <- function(se)      paste0("(", sprintf("%.4f", se), ")")
 
 write_tex <- function(lines, path) {
   writeLines(lines, con = path)
@@ -142,23 +138,30 @@ table_data <- res |>
       term == "PROSECUTOR_CASE_N" ~ "Career Case N",
       TRUE ~ NA_character_
     ),
-    cell  = fmt_coef(estimate, std.error, p.value),
-    model = factor(model, levels = model_order)
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error),
+    model    = factor(model, levels = model_order)
   ) |>
   filter(!is.na(term_clean))
 
-t1_wide <- table_data |>
+t1_est <- table_data |>
   filter(term_clean %in% focal_rows) |>
-  select(term_clean, model, cell) |>
-  pivot_wider(names_from = model, values_from = cell) |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly  = "---",
-                  SpecB_YearFE       = "---",
-                  SpecC_ProsecutorFE = "---"))
+  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---"))
+
+t1_se <- table_data |>
+  filter(term_clean %in% focal_rows) |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
+  arrange(term_clean) |>
+  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = ""))
 
 message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u2550\u2550")
-print(t1_wide, n = Inf)
+print(t1_est, n = Inf)
 
 # Build LaTeX
 tex1 <- c(
@@ -173,12 +176,14 @@ tex1 <- c(
   "\\hline"
 )
 
-for (i in seq_len(nrow(t1_wide))) {
-  r <- t1_wide[i, ]
+for (i in seq_len(nrow(t1_est))) {
+  e <- t1_est[i, ]
+  s <- t1_se[i, ]
   tex1 <- c(tex1,
-    paste0(r$term_clean, " & ", r$SpecA_OffenseOnly,
-           " & ", r$SpecB_YearFE,
-           " & ", r$SpecC_ProsecutorFE, " \\\\"),
+    paste0(e$term_clean, " & ", e$SpecA_OffenseOnly,
+           " & ", e$SpecB_YearFE, " & ", e$SpecC_ProsecutorFE, " \\\\"),
+    paste0(" & ", s$SpecA_OffenseOnly,
+           " & ", s$SpecB_YearFE, " & ", s$SpecC_ProsecutorFE, " \\\\"),
     "& & & \\\\"
   )
 }
@@ -215,17 +220,24 @@ m7_data <- res |>
       term == "LATINO" ~ "Latino",
       TRUE ~ NA_character_
     ),
-    cell = fmt_coef(estimate, std.error, p.value)
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error)
   ) |>
-  filter(!is.na(term_clean)) |>
-  select(term_clean, offense, cell) |>
-  pivot_wider(names_from = offense, values_from = cell)
+  filter(!is.na(term_clean))
 
-if (nrow(m7_data) > 0) {
+m7_est <- m7_data |>
+  select(term_clean, offense, est_cell) |>
+  pivot_wider(names_from = offense, values_from = est_cell)
+
+m7_se <- m7_data |>
+  select(term_clean, offense, se_cell) |>
+  pivot_wider(names_from = offense, values_from = se_cell)
+
+if (nrow(m7_est) > 0) {
   message("\n\u2550\u2550 TABLE 2: Within-Offense-Type Estimates (M7) \u2550\u2550\n")
-  print(m7_data)
+  print(m7_est)
 
-  offense_cols <- setdiff(colnames(m7_data), "term_clean")
+  offense_cols <- setdiff(colnames(m7_est), "term_clean")
   n_cols <- length(offense_cols)
   col_spec <- paste0("l", paste(rep("c", n_cols), collapse = ""))
   header_cols <- paste(offense_cols, collapse = " & ")
@@ -241,11 +253,14 @@ if (nrow(m7_data) > 0) {
     "\\hline"
   )
 
-  for (i in seq_len(nrow(m7_data))) {
-    r <- m7_data[i, ]
-    vals <- paste(unlist(r[offense_cols]), collapse = " & ")
+  for (i in seq_len(nrow(m7_est))) {
+    e <- m7_est[i, ]
+    s <- m7_se[i, ]
+    est_vals <- paste(unlist(e[offense_cols]), collapse = " & ")
+    se_vals  <- paste(unlist(s[offense_cols]), collapse = " & ")
     tex2 <- c(tex2,
-      paste0(r$term_clean, " & ", vals, " \\\\"),
+      paste0(e$term_clean, " & ", est_vals, " \\\\"),
+      paste0(" & ", se_vals, " \\\\"),
       paste0(paste(rep("&", n_cols), collapse = " "), " \\\\")
     )
   }
@@ -262,5 +277,6 @@ if (nrow(m7_data) > 0) {
 } else {
   message("No M7 models found in results — skipping Table 2.")
 }
+
 
 message("\nAll tables saved to ", DATA_DIR)
