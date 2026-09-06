@@ -1,13 +1,12 @@
-# Bexar County — Publication-Ready Regression Tables
+# Bexar County — Publication-Ready Regression Tables (LaTeX output)
 # Requires: bexar_model_results.csv (from bexar_models.R)
-# Outputs:  bexar_table1.csv  — progression table (M1–M5), focal coefficients
-#           bexar_table1.docx — Word-ready version (if officer package available)
+# Outputs:  bexar_table1.tex — main progression table (Spec A/B/C)
+#           bexar_table2.tex — within-offense-type estimates
 #
 # Format follows Shaffer (2023) 90 U. Chi. L. Rev. 1889:
 #   - Columns = model specifications, rows = coefficients
 #   - Cells: coefficient (log-odds) with SE in parentheses below
 #   - Significance stars: ***p<0.01  **p<0.05  *p<0.10
-#   - Bottom rows: N, controls included (Y/N)
 
 DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
 
@@ -15,7 +14,7 @@ library(tidyverse)
 
 res <- read_csv(file.path(DATA_DIR, "bexar_model_results.csv"), show_col_types = FALSE)
 
-# ── Stars helper ──────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 stars <- function(p) {
   case_when(
@@ -27,155 +26,157 @@ stars <- function(p) {
 }
 
 fmt_coef <- function(est, se, p) {
-  paste0(round(est, 3), stars(p), "\n(", round(se, 3), ")")
+  paste0(
+    sprintf("%.4f", est), stars(p),
+    " \\\\\\ \n& (", sprintf("%.4f", se), ")"
+  )
+}
+
+write_tex <- function(lines, path) {
+  writeLines(lines, con = path)
+  message("Saved: ", path)
 }
 
 # ── Table 1: Clean identification progression (Spec A → B → C) ───────────────
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
-# Rows: BLACK × PROSECUTOR_CASE_N, LATINO × PROSECUTOR_CASE_N, BLACK, LATINO
-# Columns: SpecA (offense+attorney), SpecB (+year FE), SpecC (prosecutor FE)
-
-focal_terms <- c("BLACK:PROSECUTOR_CASE_N", "PROSECUTOR_CASE_N:BLACK",
-                 "LATINO:PROSECUTOR_CASE_N", "PROSECUTOR_CASE_N:LATINO",
-                 "BLACK", "LATINO")
 
 model_order <- c("SpecA_OffenseOnly", "SpecB_YearFE", "SpecC_ProsecutorFE")
-
-model_labels <- c(
-  SpecA_OffenseOnly  = "(1)\nOffense + Attorney",
-  SpecB_YearFE       = "(2)\n+ Year FE",
-  SpecC_ProsecutorFE = "(3)\nProsecutor FE"
-)
+focal_rows  <- c("Black $\\times$ Career Case N",
+                 "Latino $\\times$ Career Case N",
+                 "Black", "Latino", "Career Case N")
 
 table_data <- res |>
   filter(model %in% model_order) |>
   mutate(
-    # Normalize interaction term name
     term_clean = case_when(
-      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~ "Black × Career Case N",
-      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~ "Latino × Career Case N",
-      term == "BLACK"  ~ "Black",
-      term == "LATINO" ~ "Latino",
+      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
+        "Black $\\times$ Career Case N",
+      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
+        "Latino $\\times$ Career Case N",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
       term == "PROSECUTOR_CASE_N" ~ "Career Case N",
-      TRUE ~ term
+      TRUE ~ NA_character_
     ),
-    cell = fmt_coef(estimate, std.error, p.value),
+    cell  = fmt_coef(estimate, std.error, p.value),
     model = factor(model, levels = model_order)
-  )
-
-# Focal rows to show
-focal_rows <- c("Black × Career Case N", "Latino × Career Case N",
-                "Black", "Latino", "Career Case N")
+  ) |>
+  filter(!is.na(term_clean))
 
 t1_wide <- table_data |>
   filter(term_clean %in% focal_rows) |>
   select(term_clean, model, cell) |>
-  pivot_wider(names_from = model, values_from = cell, values_fill = "—") |>
-  # Order rows
+  pivot_wider(names_from = model, values_from = cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
-  arrange(term_clean)
+  arrange(term_clean) |>
+  replace_na(list(SpecA_OffenseOnly  = "---",
+                  SpecB_YearFE       = "---",
+                  SpecC_ProsecutorFE = "---"))
 
-# Add control rows
-controls <- tribble(
-  ~term_clean,            ~SpecA_OffenseOnly, ~SpecB_YearFE, ~SpecC_ProsecutorFE,
-  "── Controls ──",       "",                 "",             "",
-  "Offense type FE",      "Yes",              "Yes",          "Yes",
-  "Offense category FE",  "Yes",              "Yes",          "Yes",
-  "Attorney type",        "Yes",              "Yes",          "Yes",
-  "Case year FE",         "No",               "Yes",          "No",
-  "Prosecutor FE",        "No",               "No",           "Yes",
-  "Sample",               "1991+",            "1991+",        "1991+"
-)
-
-# N per model
-n_row <- res |>
-  filter(model %in% model_order, term == "(Intercept)" | row_number() == 1) |>
-  group_by(model) |>
-  slice(1) |>
-  ungroup()
-
-# If nobs is not stored, note that N is in the model output
-# Build final table
-colnames(t1_wide) <- c("Coefficient", model_labels[model_order])
-
-message("\n══ TABLE 1: Focal Interaction Coefficients (Log-Odds) ══")
-message("Key test: Black × Career Case N — positive = gap widens with experience\n")
+message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u2550\u2550")
 print(t1_wide, n = Inf)
 
-write_csv(t1_wide, file.path(DATA_DIR, "bexar_table1.csv"))
-message("\nSaved: bexar_table1.csv")
-message("Note: cells show log-odds coefficient with SE in parentheses.")
-message("Stars: ***p<0.01  **p<0.05  *p<0.10")
+# Build LaTeX
+tex1 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients}",
+  "\\label{tab:main}",
+  "\\begin{tabular}{lccc}",
+  "\\hline\\hline",
+  " & (1) & (2) & (3) \\\\",
+  " & Offense + Attorney & $+$ Year FE & Prosecutor FE \\\\",
+  "\\hline"
+)
 
-# ── Table 2: Within-offense-type (M7) ─────────────────────────────────────────
-# One column per offense type, same focal rows
+for (i in seq_len(nrow(t1_wide))) {
+  r <- t1_wide[i, ]
+  tex1 <- c(tex1,
+    paste0(r$term_clean, " & ", r$SpecA_OffenseOnly,
+           " & ", r$SpecB_YearFE,
+           " & ", r$SpecC_ProsecutorFE, " \\\\"),
+    "& & & \\\\"
+  )
+}
 
-m7_models <- res |>
+tex1 <- c(tex1,
+  "\\hline",
+  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes \\\\",
+  "Case year FE & No & Yes & No \\\\",
+  "Prosecutor FE & No & No & Yes \\\\",
+  "Sample & 1991+ & 1991+ & 1991+ \\\\",
+  "\\hline\\hline",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Standard errors in parentheses. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex1, file.path(DATA_DIR, "bexar_table1.tex"))
+
+# ── Table 2: Within-offense-type ──────────────────────────────────────────────
+
+m7_data <- res |>
   filter(str_starts(model, "M7_")) |>
   mutate(
-    offense = str_remove(model, "M7_(.*)_only$") |> str_extract("F[123S]"),
+    offense = str_extract(model, "F[123S]"),
     term_clean = case_when(
-      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~ "Black × Career Case N",
-      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~ "Latino × Career Case N",
+      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
+        "Black $\\times$ Career Case N",
+      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
+        "Latino $\\times$ Career Case N",
       term == "BLACK"  ~ "Black",
       term == "LATINO" ~ "Latino",
-      TRUE ~ term
+      TRUE ~ NA_character_
     ),
     cell = fmt_coef(estimate, std.error, p.value)
   ) |>
-  filter(term_clean %in% c("Black × Career Case N", "Latino × Career Case N",
-                            "Black", "Latino")) |>
+  filter(!is.na(term_clean)) |>
   select(term_clean, offense, cell) |>
-  pivot_wider(names_from = offense, values_from = cell, values_fill = "—")
+  pivot_wider(names_from = offense, values_from = cell)
 
-message("\n══ TABLE 2: Within-Offense-Type Estimates (M7) ══\n")
-print(m7_models)
-write_csv(m7_models, file.path(DATA_DIR, "bexar_table2_offense_type.csv"))
-message("Saved: bexar_table2_offense_type.csv")
+if (nrow(m7_data) > 0) {
+  message("\n\u2550\u2550 TABLE 2: Within-Offense-Type Estimates (M7) \u2550\u2550\n")
+  print(m7_data)
 
-# ── Optional: Word export via officer ────────────────────────────────────────
-if (requireNamespace("officer", quietly = TRUE) &&
-    requireNamespace("flextable", quietly = TRUE)) {
+  offense_cols <- setdiff(colnames(m7_data), "term_clean")
+  n_cols <- length(offense_cols)
+  col_spec <- paste0("l", paste(rep("c", n_cols), collapse = ""))
+  header_cols <- paste(offense_cols, collapse = " & ")
 
-  library(officer)
-  library(flextable)
+  tex2 <- c(
+    "\\begin{table}[htbp]",
+    "\\centering",
+    "\\caption{Within-Offense-Type Estimates}",
+    "\\label{tab:offense}",
+    paste0("\\begin{tabular}{", col_spec, "}"),
+    "\\hline\\hline",
+    paste0(" & ", header_cols, " \\\\"),
+    "\\hline"
+  )
 
-  make_ft <- function(df, title) {
-    ft <- flextable(df) |>
-      set_caption(caption = title) |>
-      theme_booktabs() |>
-      fontsize(size = 10, part = "all") |>
-      font(fontname = "Times New Roman", part = "all") |>
-      bold(part = "header") |>
-      align(align = "center", part = "header") |>
-      align(j = 1, align = "left", part = "body") |>
-      autofit()
-    ft
+  for (i in seq_len(nrow(m7_data))) {
+    r <- m7_data[i, ]
+    vals <- paste(unlist(r[offense_cols]), collapse = " & ")
+    tex2 <- c(tex2,
+      paste0(r$term_clean, " & ", vals, " \\\\"),
+      paste0(paste(rep("&", n_cols), collapse = " "), " \\\\")
+    )
   }
 
-  doc <- read_docx() |>
-    body_add_par("Table 1. Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients",
-                 style = "heading 1") |>
-    body_add_par(paste0(
-      "Logistic regression coefficients (log-odds). Outcome: deferred adjudication. ",
-      "Sample: felony cases with identified prosecutors handling 50+ cases, 1990–2015 (N varies by model). ",
-      "Standard errors in parentheses. ***p<0.01  **p<0.05  *p<0.10."
-    ), style = "Normal") |>
-    body_add_flextable(make_ft(t1_wide, "")) |>
-    body_add_break() |>
-    body_add_par("Table 2. Within-Offense-Type Estimates (M7)",
-                 style = "heading 1") |>
-    body_add_par(paste0(
-      "Each column estimates the same model within a single offense class. ",
-      "Logistic regression, log-odds. Standard errors in parentheses. ",
-      "***p<0.01  **p<0.05  *p<0.10."
-    ), style = "Normal") |>
-    body_add_flextable(make_ft(m7_models, ""))
+  tex2 <- c(tex2,
+    "\\hline\\hline",
+    paste0("\\multicolumn{", n_cols + 1, "}{l}{\\footnotesize \\textit{Notes:} Each column estimates the same model within a single offense class.} \\\\"),
+    paste0("\\multicolumn{", n_cols + 1, "}{l}{\\footnotesize Log-odds. Standard errors in parentheses. $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\"),
+    "\\end{tabular}",
+    "\\end{table}"
+  )
 
-  print(doc, target = file.path(DATA_DIR, "bexar_tables.docx"))
-  message("Saved: bexar_tables.docx  (requires officer + flextable)")
-
+  write_tex(tex2, file.path(DATA_DIR, "bexar_table2.tex"))
 } else {
-  message("\nInstall 'officer' and 'flextable' for Word export:")
-  message("  install.packages(c('officer', 'flextable'))")
+  message("No M7 models found in results — skipping Table 2.")
 }
+
+message("\nAll tables saved to ", DATA_DIR)
