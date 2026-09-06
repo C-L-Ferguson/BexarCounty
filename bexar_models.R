@@ -177,6 +177,16 @@ m9 <- run_logit(
   df_plea |> mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
   "M9_StraightConviction")
 
+# ── Spec D: Prosecutor + Court crossed FE (addresses judge-learning concern) ──
+
+specD <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY)),
+  fe_vars = c("PROSECUTOR", "COURT"),
+  "SpecD_ProsecutorCourtFE")
+
 # ── SpecA/C with defendant prior-record proxy (robustness) ───────────────────
 
 specA_priors <- run_logit(
@@ -196,7 +206,7 @@ specC_priors <- run_feglm(
 
 # ── Export ────────────────────────────────────────────────────────────────────
 
-all_results <- bind_rows(m1, m2, specA, specB, specC, m6, m7, m8, m9,
+all_results <- bind_rows(m1, m2, specA, specB, specC, specD, m6, m7, m8, m9,
                          specA_priors, specC_priors) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
