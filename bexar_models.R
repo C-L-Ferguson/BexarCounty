@@ -102,12 +102,14 @@ specA <- run_logit(
 # ── Spec B: Add case year FE (main table col 2) ───────────────────────────────
 # Note: CASE_YEAR_FE is collinear with PROSECUTOR_CASE_N by construction;
 # interaction surviving here is a conservative test.
+# Uses feglm for speed (glm + tidy hangs on 24 year FE dummies).
 
-specB <- run_logit(
+specB <- run_feglm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
     BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
+  fe_vars = "CASE_YEAR_FE",
   "SpecB_YearFE")
 
 # ── Spec C: Prosecutor fixed effects (main table col 3) ───────────────────────
