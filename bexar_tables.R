@@ -30,23 +30,21 @@ fmt_coef <- function(est, se, p) {
   paste0(round(est, 3), stars(p), "\n(", round(se, 3), ")")
 }
 
-# ── Table 1: Progression of focal interactions (M1–M5) ───────────────────────
-# Rows: BLACK × PROSECUTOR_CASE_N, LATINO × PROSECUTOR_CASE_N
-# Columns: M1_Baseline, M2_OffenseFE, M3_CourtYearFE, M4_Full_NoBond, M5_ProsecutorFE
+# ── Table 1: Clean identification progression (Spec A → B → C) ───────────────
+# Sample: prosecutors first observed 1991 or later (left-censoring excluded)
+# Rows: BLACK × PROSECUTOR_CASE_N, LATINO × PROSECUTOR_CASE_N, BLACK, LATINO
+# Columns: SpecA (offense+attorney), SpecB (+year FE), SpecC (prosecutor FE)
 
 focal_terms <- c("BLACK:PROSECUTOR_CASE_N", "PROSECUTOR_CASE_N:BLACK",
                  "LATINO:PROSECUTOR_CASE_N", "PROSECUTOR_CASE_N:LATINO",
                  "BLACK", "LATINO")
 
-model_order <- c("M1_Baseline", "M2_OffenseFE", "M3_CourtYearFE",
-                 "M4_Full_NoBond", "M5_ProsecutorFE")
+model_order <- c("SpecA_OffenseOnly", "SpecB_YearFE", "SpecC_ProsecutorFE")
 
 model_labels <- c(
-  M1_Baseline      = "(1)\nBaseline",
-  M2_OffenseFE     = "(2)\n+ Offense FE",
-  M3_CourtYearFE   = "(3)\n+ Court/Year FE",
-  M4_Full_NoBond   = "(4)\nFull Model",
-  M5_ProsecutorFE  = "(5)\n+ Prosecutor FE"
+  SpecA_OffenseOnly  = "(1)\nOffense + Attorney",
+  SpecB_YearFE       = "(2)\n+ Year FE",
+  SpecC_ProsecutorFE = "(3)\nProsecutor FE"
 )
 
 table_data <- res |>
@@ -79,14 +77,14 @@ t1_wide <- table_data |>
 
 # Add control rows
 controls <- tribble(
-  ~term_clean,            ~M1_Baseline, ~M2_OffenseFE, ~M3_CourtYearFE, ~M4_Full_NoBond, ~M5_ProsecutorFE,
-  "── Controls ──",       "",           "",             "",              "",               "",
-  "Offense type FE",      "No",         "Yes",          "Yes",           "Yes",            "Yes",
-  "Offense category FE",  "No",         "Yes",          "Yes",           "Yes",            "Yes",
-  "Court FE",             "No",         "No",           "Yes",           "Yes",            "No",
-  "Case year FE",         "No",         "No",           "Yes",           "Yes",            "No",
-  "Attorney type",        "No",         "No",           "No",            "Yes",            "Yes",
-  "Prosecutor FE",        "No",         "No",           "No",            "No",             "Yes"
+  ~term_clean,            ~SpecA_OffenseOnly, ~SpecB_YearFE, ~SpecC_ProsecutorFE,
+  "── Controls ──",       "",                 "",             "",
+  "Offense type FE",      "Yes",              "Yes",          "Yes",
+  "Offense category FE",  "Yes",              "Yes",          "Yes",
+  "Attorney type",        "Yes",              "Yes",          "Yes",
+  "Case year FE",         "No",               "Yes",          "No",
+  "Prosecutor FE",        "No",               "No",           "Yes",
+  "Sample",               "1991+",            "1991+",        "1991+"
 )
 
 # N per model
@@ -98,7 +96,7 @@ n_row <- res |>
 
 # If nobs is not stored, note that N is in the model output
 # Build final table
-colnames(t1_wide) <- c("Coefficient", model_labels[levels(table_data$model)])
+colnames(t1_wide) <- c("Coefficient", model_labels[model_order])
 
 message("\n══ TABLE 1: Focal Interaction Coefficients (Log-Odds) ══")
 message("Key test: Black × Career Case N — positive = gap widens with experience\n")
