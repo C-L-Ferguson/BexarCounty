@@ -171,24 +171,21 @@ if (judg_col != "JUDGEMENT-DESC") {
   df <- df |> rename(`JUDGEMENT-DESC` = all_of(judg_col))
 }
 
-df <- df |>
-  mutate(
-    disp_ = replace_na(`DISPOSITION-DESC`, ""),
-    judg_ = replace_na(`JUDGEMENT-DESC`,   ""),
-    DEFERRED    = as.integer(str_detect(disp_, regex("DEFR",      ignore_case = TRUE))),
-    DISMISSED   = as.integer(str_detect(disp_, regex("DSMD",      ignore_case = TRUE))),
-    `GUILTY-PLEA` = as.integer(str_detect(disp_, regex("CT-GUILTY", ignore_case = TRUE))),
-    `JURY-TRIAL`  = as.integer(
-      str_detect(disp_, regex("PNG JRY", ignore_case = TRUE)) |
-      str_detect(judg_, regex("JURY",    ignore_case = TRUE))
-    ),
-    PROBATION   = as.integer(str_detect(disp_, regex("PROB",      ignore_case = TRUE))),
-    CONVICTED   = as.integer(
-      `GUILTY-PLEA` == 1L | `JURY-TRIAL` == 1L |
-      (!is.na(`SENTENCE-DAYS`) & `SENTENCE-DAYS` > 0)
-    )
-  ) |>
-  select(-disp_, -judg_)
+disp_ <- replace_na(df[["DISPOSITION-DESC"]], "")
+judg_ <- replace_na(df[["JUDGEMENT-DESC"]],   "")
+
+df[["DEFERRED"]]    <- as.integer(str_detect(disp_, regex("DEFR",      ignore_case = TRUE)))
+df[["DISMISSED"]]   <- as.integer(str_detect(disp_, regex("DSMD",      ignore_case = TRUE)))
+df[["GUILTY-PLEA"]] <- as.integer(str_detect(disp_, regex("CT-GUILTY", ignore_case = TRUE)))
+df[["JURY-TRIAL"]]  <- as.integer(
+  str_detect(disp_, regex("PNG JRY", ignore_case = TRUE)) |
+  str_detect(judg_, regex("JURY",    ignore_case = TRUE))
+)
+df[["PROBATION"]]   <- as.integer(str_detect(disp_, regex("PROB",      ignore_case = TRUE)))
+df[["CONVICTED"]]   <- as.integer(
+  df[["GUILTY-PLEA"]] == 1L | df[["JURY-TRIAL"]] == 1L |
+  (!is.na(df[["SENTENCE-DAYS"]]) & df[["SENTENCE-DAYS"]] > 0)
+)
 
 # ── 11. Bond amount ───────────────────────────────────────────────────────────
 
