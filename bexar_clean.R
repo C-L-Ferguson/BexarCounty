@@ -21,7 +21,7 @@ message("Found ", length(files), " CSV files: ", paste(basename(files), collapse
 
 frames <- map(files, function(f) {
   df <- read_csv(f, col_types = cols(.default = "c"), show_col_types = FALSE)
-  df <- select(df, -starts_with("Unnamed"))
+  df <- select(df, -starts_with("Unnamed"), -starts_with("..."))
   message("  Loaded ", basename(f), ": ", nrow(df), " rows, ", ncol(df), " cols")
   df
 })
