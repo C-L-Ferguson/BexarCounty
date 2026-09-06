@@ -1,6 +1,8 @@
 # Bexar County — Publication-Ready Regression Tables (LaTeX output)
 # Requires: bexar_model_results.csv (from bexar_models.R)
-# Outputs:  bexar_table1.tex — main progression table (Spec A/B/C)
+#           bexar_prosecutor_panel_1990_2015.parquet (for Table 0)
+# Outputs:  bexar_table0.tex — descriptive statistics
+#           bexar_table1.tex — main progression table (Spec A/B/C)
 #           bexar_table2.tex — within-offense-type estimates
 #
 # Format follows Shaffer (2023) 90 U. Chi. L. Rev. 1889:
@@ -11,8 +13,90 @@
 DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
+library(arrow)
 
 res <- read_csv(file.path(DATA_DIR, "bexar_model_results.csv"), show_col_types = FALSE)
+
+# ── Table 0: Descriptive Statistics ───────────────────────────────────────────
+
+dp <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.parquet"))
+
+# Restrict to 1991+ prosecutors (mirrors main analysis sample)
+fresh_prosecutors <- dp |>
+  group_by(`INTAKE-PROSECUTOR`) |>
+  summarise(first_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop") |>
+  filter(first_year >= 1991) |>
+  pull(`INTAKE-PROSECUTOR`)
+
+dp_clean <- dp |>
+  filter(`RACE-LABEL` %in% c("Black", "White", "Latino"),
+         `INTAKE-PROSECUTOR` %in% fresh_prosecutors)
+
+desc <- dp_clean |>
+  group_by(Race = `RACE-LABEL`) |>
+  summarise(
+    N               = n(),
+    Deferred_pct    = mean(DEFERRED,      na.rm = TRUE) * 100,
+    Dismissed_pct   = mean(DISMISSED,     na.rm = TRUE) * 100,
+    GuiltyPlea_pct  = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
+    Appointed_pct   = mean(`ATTORNEY-TYPE` == "Appointed", na.rm = TRUE) * 100,
+    Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+overall <- dp_clean |>
+  summarise(
+    Race            = "All",
+    N               = n(),
+    Deferred_pct    = mean(DEFERRED,      na.rm = TRUE) * 100,
+    Dismissed_pct   = mean(DISMISSED,     na.rm = TRUE) * 100,
+    GuiltyPlea_pct  = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
+    Appointed_pct   = mean(`ATTORNEY-TYPE` == "Appointed", na.rm = TRUE) * 100,
+    Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE)
+  )
+
+desc_all <- bind_rows(desc, overall) |>
+  mutate(Race = factor(Race, levels = c("Black", "Latino", "White", "All"))) |>
+  arrange(Race)
+
+message("\n\u2550\u2550 TABLE 0: Descriptive Statistics \u2550\u2550")
+print(desc_all)
+
+tex0 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Descriptive Statistics by Defendant Race}",
+  "\\label{tab:desc}",
+  "\\begin{tabular}{lrrrrrr}",
+  "\\hline\\hline",
+  " & $N$ & Deferred (\\%) & Dismissed (\\%) & Guilty Plea (\\%) & Appointed (\\%) & Mean Career Case $N$ \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(desc_all))) {
+  r <- desc_all[i, ]
+  if (r$Race == "All") tex0 <- c(tex0, "\\hline")
+  tex0 <- c(tex0,
+    paste0(r$Race, " & ",
+           formatC(r$N, format = "d", big.mark = ","), " & ",
+           sprintf("%.1f", r$Deferred_pct), " & ",
+           sprintf("%.1f", r$Dismissed_pct), " & ",
+           sprintf("%.1f", r$GuiltyPlea_pct), " & ",
+           sprintf("%.1f", r$Appointed_pct), " & ",
+           sprintf("%.1f", r$Mean_ProsCase_N), " \\\\")
+  )
+}
+
+tex0 <- c(tex0,
+  "\\hline\\hline",
+  "\\multicolumn{7}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County. Sample: Black, Latino, and White defendants} \\\\",
+  "\\multicolumn{7}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later (left-censoring excluded).} \\\\",
+  "\\multicolumn{7}{l}{\\footnotesize Appointed = court-appointed counsel. Career Case $N$ = cumulative prosecutor caseload.} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

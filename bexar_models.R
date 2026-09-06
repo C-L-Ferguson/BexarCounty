@@ -40,7 +40,16 @@ df <- dp |>
     CASE_N_NORM = PROSECUTOR_CASE_N / max(PROSECUTOR_CASE_N, na.rm = TRUE)
   )
 
-df_atty <- df |> filter(`ATTORNEY-TYPE` %in% c("Appointed", "Hired"))
+# Drop prosecutors first observed in 1990 (left-censored career counts)
+# Prosecutors appearing in 1991+ have PROSECUTOR_CASE_N = 1 as their true career start.
+fresh_prosecutors <- df |>
+  group_by(`INTAKE-PROSECUTOR`) |>
+  summarise(first_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop") |>
+  filter(first_year >= 1991) |>
+  pull(`INTAKE-PROSECUTOR`)
+
+df        <- df        |> filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors)
+df_atty   <- df |> filter(`ATTORNEY-TYPE` %in% c("Appointed", "Hired"))
 df_felony <- df |> filter(`OFFENSE-CLASS` %in% c("F1", "F2", "F3", "FS"))
 
 # Helper: run logit, return tidy table
