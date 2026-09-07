@@ -238,7 +238,7 @@ p3 <- ggplot(indiv, aes(CAREER_DECILE, rate * 100, color = Race, group = Race)) 
     caption = paste0(
       "Notes: Each line shows deferred adjudication rates for Black (navy) and White (green) ",
       "defendants across 10 equal career-stage bins for the 10 highest-volume prosecutors, ",
-      "1990–2015. Bins with fewer than 3 cases omitted. Y-axis is shared across panels. ",
+      "1991–2015. Bins with fewer than 3 cases omitted. Y-axis is shared across panels. ",
       "M.P. illustrates the learning-curve pattern most clearly: this prosecutor begins with ",
       "a higher deferred rate for Black defendants and ends with a substantial pro-White gap, ",
       "consistent with the aggregate trend. R.F. illustrates real heterogeneity — the gap ",
