@@ -117,7 +117,51 @@ tex0 <- c(tex0,
 
 write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
 
-# ── Table 1: Clean identification progression (Spec A → B → C) ───────────────
+# ── SpecD: Prosecutor FE + Year FE (robustness check) ────────────────────────
+library(fixest)
+
+df_specD <- dp |>
+  filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors,
+         `RACE-LABEL` %in% c("Black", "White", "Latino"),
+         !is.na(OFFENSE_CATEGORY)) |>
+  mutate(
+    BLACK    = as.integer(`RACE-LABEL` == "Black"),
+    LATINO   = as.integer(`RACE-LABEL` == "Latino"),
+    APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed")
+  )
+
+fit_specD <- feglm(
+  DEFERRED ~ BLACK + LATINO +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    `OFFENSE-CLASS` + OFFENSE_CATEGORY + APPOINTED |
+    `INTAKE-PROSECUTOR` + `CASE-YEAR`,
+  data    = df_specD,
+  family  = binomial(),
+  cluster = ~`INTAKE-PROSECUTOR`
+)
+
+specD_coefs <- as.data.frame(summary(fit_specD)$coeftable) |>
+  tibble::rownames_to_column("term") |>
+  rename(estimate = Estimate, std.error = `Std. Error`, p.value = `Pr(>|z|)`) |>
+  mutate(model = "SpecD_ProsYearFE")
+
+specD_focal <- specD_coefs |>
+  filter(term %in% c("BLACK", "LATINO",
+                     "BLACK:PROSECUTOR_CASE_N", "LATINO:PROSECUTOR_CASE_N")) |>
+  mutate(
+    term_clean = case_when(
+      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
+        "Black $\\times$ Career Case N",
+      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
+        "Latino $\\times$ Career Case N",
+      term == "BLACK"  ~ "Black",
+      term == "LATINO" ~ "Latino"
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error)
+  )
+
+# ── Table 1: Clean identification progression (Spec A → B → C → D) ───────────
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
 
 model_order <- c("SpecA_OffenseOnly", "SpecB_YearFE", "SpecC_ProsecutorFE", "SpecC_WithPriors")
@@ -150,7 +194,12 @@ t1_est <- table_data |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---", SpecC_WithPriors = "---"))
+  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---", SpecC_WithPriors = "---")) |>
+  left_join(
+    specD_focal |> select(term_clean, est_cell) |> rename(SpecD_ProsYearFE = est_cell),
+    by = "term_clean"
+  ) |>
+  replace_na(list(SpecD_ProsYearFE = "---"))
 
 t1_se <- table_data |>
   filter(term_clean %in% focal_rows) |>
@@ -158,21 +207,28 @@ t1_se <- table_data |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = "", SpecC_WithPriors = ""))
+  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = "", SpecC_WithPriors = "")) |>
+  left_join(
+    specD_focal |> select(term_clean, se_cell) |> rename(SpecD_ProsYearFE = se_cell),
+    by = "term_clean"
+  ) |>
+  replace_na(list(SpecD_ProsYearFE = ""))
 
 message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u2550\u2550")
 print(t1_est, n = Inf)
 
 # Build LaTeX
+specD_N <- nobs(fit_specD)
+
 tex1 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
   "\\caption{Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients}",
   "\\label{tab:main}",
-  "\\begin{tabular}{lcccc}",
+  "\\begin{tabular}{lccccc}",
   "\\hline\\hline",
-  " & (1) & (2) & (3) & (4) \\\\",
-  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors \\\\",
+  " & (1) & (2) & (3) & (4) & (5) \\\\",
+  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors & Prosecutor $+$ Year FE \\\\",
   "\\hline"
 )
 
@@ -182,28 +238,29 @@ for (i in seq_len(nrow(t1_est))) {
   tex1 <- c(tex1,
     paste0(e$term_clean, " & ", e$SpecA_OffenseOnly,
            " & ", e$SpecB_YearFE, " & ", e$SpecC_ProsecutorFE,
-           " & ", e$SpecC_WithPriors, " \\\\"),
+           " & ", e$SpecC_WithPriors, " & ", e$SpecD_ProsYearFE, " \\\\"),
     paste0(" & ", s$SpecA_OffenseOnly,
            " & ", s$SpecB_YearFE, " & ", s$SpecC_ProsecutorFE,
-           " & ", s$SpecC_WithPriors, " \\\\"),
-    "& & & & \\\\"
+           " & ", s$SpecC_WithPriors, " & ", s$SpecD_ProsYearFE, " \\\\"),
+    "& & & & & \\\\"
   )
 }
 
 tex1 <- c(tex1,
   "\\hline",
-  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & Yes & Yes \\\\",
-  "Case year FE & No & Yes & No & No \\\\",
-  "Prosecutor FE & No & No & Yes & Yes \\\\",
-  "Defendant case $N$ & No & No & No & Yes \\\\",
-  "Sample & 1991+ & 1991+ & 1991+ & 1991+ \\\\",
-  "$N$ & $162{,}218$ & $157{,}791$ & $157{,}372$ & $157{,}372$ \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes & Yes & Yes \\\\",
+  "Case year FE & No & Yes & No & No & Yes \\\\",
+  "Prosecutor FE & No & No & Yes & Yes & Yes \\\\",
+  "Defendant case $N$ & No & No & No & Yes & No \\\\",
+  "Sample & 1991+ & 1991+ & 1991+ & 1991+ & 1991+ \\\\",
+  paste0("$N$ & $162{,}218$ & $157{,}791$ & $157{,}372$ & $157{,}372$ & $",
+         formatC(specD_N, format = "d", big.mark = "{,}"), "$ \\\\"),
   "\\hline\\hline",
-  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize Standard errors in parentheses. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record. Col.~(5) adds year FE to Col.~(3).} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
