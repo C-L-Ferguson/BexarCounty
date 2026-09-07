@@ -333,6 +333,31 @@ message(sprintf("White Q1: %.1f%%  Black Q1: %.1f%%  Gap: %.1f pp",
 message(sprintf("White Q4: %.1f%%  Black Q4: %.1f%%  Gap: %.1f pp",
                 white_q4*100, black_q4*100, (white_q4-black_q4)*100))
 
+# By-offense-type breakdown
+offense_types <- c("F1", "F2", "F3", "FS")
+offense_labels <- c("F1 (first degree)", "F2 (second degree)", "F3 (third degree)", "FS (state jail)")
+
+ot_rows <- list()
+for (j in seq_along(offense_types)) {
+  ot <- offense_types[j]
+  ref_ot <- df_pred |>
+    filter(!is.na(OFFENSE_CATEGORY), APPOINTED == 1, OFFENSE_TYPE == ot) |>
+    count(OFFENSE_TYPE, OFFENSE_CATEGORY) |>
+    mutate(wt = n / sum(n))
+  if (nrow(ref_ot) == 0) next
+  pred_ot <- function(black, case_n) {
+    g <- ref_ot |> mutate(BLACK = black, LATINO = 0,
+                           PROSECUTOR_CASE_N = case_n, APPOINTED = 1)
+    weighted.mean(predict(fit_pred, newdata = g, type = "response"), g$wt)
+  }
+  wq1 <- pred_ot(0, q1_mid); bq1 <- pred_ot(1, q1_mid)
+  wq4 <- pred_ot(0, q4_mid); bq4 <- pred_ot(1, q4_mid)
+  ot_rows[[j]] <- list(label = offense_labels[j],
+                        gap_q1 = (wq1 - bq1) * 100,
+                        gap_q4 = (wq4 - bq4) * 100,
+                        change = ((wq4 - bq4) - (wq1 - bq1)) * 100)
+}
+
 tex3 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
@@ -340,21 +365,30 @@ tex3 <- c(
   "\\label{tab:pred}",
   "\\begin{tabular}{lccc}",
   "\\hline\\hline",
-  " & White (\\%) & Black (\\%) & Gap (pp) \\\\",
+  " & Q1 Gap (pp) & Q4 Gap (pp) & Change (pp) \\\\",
   "\\hline",
-  paste0("Quintile 1 (early career) & ",
-         sprintf("%.1f", white_q1*100), " & ",
-         sprintf("%.1f", black_q1*100), " & ",
-         sprintf("%.1f", (white_q1-black_q1)*100), " \\\\"),
-  paste0("Quintile 4 (peak career) & ",
-         sprintf("%.1f", white_q4*100), " & ",
-         sprintf("%.1f", black_q4*100), " & ",
-         sprintf("%.1f", (white_q4-black_q4)*100), " \\\\"),
-  paste0("Change in gap (Q4 $-$ Q1) & & & ",
-         sprintf("%.1f", ((white_q4-black_q4)-(white_q1-black_q1))*100), " \\\\"),
+  "\\textit{Panel A: All felony offenses} & & & \\\\",
+  paste0("\\quad White--Black gap & ",
+         sprintf("%.1f", (white_q1 - black_q1) * 100), " & ",
+         sprintf("%.1f", (white_q4 - black_q4) * 100), " & ",
+         sprintf("%.1f", ((white_q4 - black_q4) - (white_q1 - black_q1)) * 100), " \\\\"),
+  "\\hline",
+  "\\textit{Panel B: By felony severity} & & & \\\\"
+)
+
+for (r in ot_rows) {
+  tex3 <- c(tex3,
+    paste0("\\quad ", r$label, " & ",
+           sprintf("%.1f", r$gap_q1), " & ",
+           sprintf("%.1f", r$gap_q4), " & ",
+           sprintf("%.1f", r$change), " \\\\")
+  )
+}
+
+tex3 <- c(tex3,
   "\\hline\\hline",
-  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Predicted probabilities from Specification (1) (offense type, category, and attorney-type controls).} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize Averaged across the empirical distribution of appointed-counsel felony offense types.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} White--Black gap in predicted probability of deferred adjudication (percentage points).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Predicted from Specification (1). Averaged across appointed-counsel cases within each offense class.} \\\\",
   "\\multicolumn{4}{l}{\\footnotesize Q1 midpoint $\\approx$ 77 cumulative cases; Q4 midpoint $\\approx$ 1{,}183 cumulative cases.} \\\\",
   "\\end{tabular}",
   "\\end{table}"
