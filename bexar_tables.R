@@ -284,4 +284,82 @@ if (nrow(m7_est) > 0) {
 }
 
 
+# ── Table 3: Predicted Probability Summary (marginal effects) ─────────────────
+# Re-fit SpecA as plain glm to support predict(newdata=...)
+
+df_pred <- dp |>
+  filter(`RACE-LABEL` %in% c("Black", "White", "Latino"),
+         `INTAKE-PROSECUTOR` %in% fresh_prosecutors) |>
+  mutate(
+    BLACK            = as.integer(`RACE-LABEL` == "Black"),
+    LATINO           = as.integer(`RACE-LABEL` == "Latino"),
+    DEFERRED         = as.integer(DEFERRED),
+    APPOINTED        = as.integer(`ATTORNEY-TYPE` == "Appointed"),
+    OFFENSE_TYPE     = `OFFENSE-TYPE`
+  )
+
+fit_pred <- glm(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
+  data   = df_pred |> filter(!is.na(OFFENSE_CATEGORY)),
+  family = binomial()
+)
+
+q_breaks <- quantile(df_pred$PROSECUTOR_CASE_N, probs = seq(0, 1, 0.2), na.rm = TRUE)
+q1_mid   <- mean(c(q_breaks[1], q_breaks[2]))
+q4_mid   <- mean(c(q_breaks[4], q_breaks[5]))
+
+ref_dist <- df_pred |>
+  filter(!is.na(OFFENSE_CATEGORY), APPOINTED == 1) |>
+  count(OFFENSE_TYPE, OFFENSE_CATEGORY) |>
+  mutate(wt = n / sum(n))
+
+pred_cell <- function(black, case_n) {
+  g <- ref_dist |>
+    mutate(BLACK = black, LATINO = 0,
+           PROSECUTOR_CASE_N = case_n, APPOINTED = 1)
+  weighted.mean(predict(fit_pred, newdata = g, type = "response"), g$wt)
+}
+
+white_q1 <- pred_cell(0, q1_mid)
+black_q1 <- pred_cell(1, q1_mid)
+white_q4 <- pred_cell(0, q4_mid)
+black_q4 <- pred_cell(1, q4_mid)
+
+message("\n══ TABLE 3: Predicted Probabilities ══")
+message(sprintf("White Q1: %.1f%%  Black Q1: %.1f%%  Gap: %.1f pp",
+                white_q1*100, black_q1*100, (white_q1-black_q1)*100))
+message(sprintf("White Q4: %.1f%%  Black Q4: %.1f%%  Gap: %.1f pp",
+                white_q4*100, black_q4*100, (white_q4-black_q4)*100))
+
+tex3 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Predicted Probability of Deferred Adjudication by Race and Prosecutor Experience}",
+  "\\label{tab:pred}",
+  "\\begin{tabular}{lccc}",
+  "\\hline\\hline",
+  " & White (\\%) & Black (\\%) & Gap (pp) \\\\",
+  "\\hline",
+  paste0("Quintile 1 (early career) & ",
+         sprintf("%.1f", white_q1*100), " & ",
+         sprintf("%.1f", black_q1*100), " & ",
+         sprintf("%.1f", (white_q1-black_q1)*100), " \\\\"),
+  paste0("Quintile 4 (peak career) & ",
+         sprintf("%.1f", white_q4*100), " & ",
+         sprintf("%.1f", black_q4*100), " & ",
+         sprintf("%.1f", (white_q4-black_q4)*100), " \\\\"),
+  paste0("Change in gap (Q4 $-$ Q1) & & & ",
+         sprintf("%.1f", ((white_q4-black_q4)-(white_q1-black_q1))*100), " \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Predicted probabilities from Specification (1) (offense type, category, and attorney-type controls).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Averaged across the empirical distribution of appointed-counsel felony offense types.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Q1 midpoint $\\approx$ 77 cumulative cases; Q4 midpoint $\\approx$ 1{,}183 cumulative cases.} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex3, file.path(DATA_DIR, "bexar_table3.tex"))
+
 message("\nAll tables saved to ", DATA_DIR)
