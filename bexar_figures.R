@@ -204,14 +204,14 @@ top10 <- dp |>
 indiv <- dp |>
   filter(`INTAKE-PROSECUTOR` %in% top10, `RACE-LABEL` %in% c("Black", "White")) |>
   group_by(`INTAKE-PROSECUTOR`, `RACE-LABEL`) |>
-  mutate(CAREER_DECILE = ntile(PROSECUTOR_CASE_N, 10)) |>
-  group_by(`INTAKE-PROSECUTOR`, `RACE-LABEL`, CAREER_DECILE) |>
+  mutate(CAREER_QUARTILE = ntile(PROSECUTOR_CASE_N, 4)) |>
+  group_by(`INTAKE-PROSECUTOR`, `RACE-LABEL`, CAREER_QUARTILE) |>
   summarise(
     rate = mean(DEFERRED, na.rm = TRUE),
     n    = n(),
     .groups = "drop"
   ) |>
-  filter(n >= 3) |>
+  filter(n >= 5) |>
   mutate(
     # Convert "LAST, FIRST" to "F.L." initials to anonymize prosecutors
     Label = {
@@ -223,27 +223,24 @@ indiv <- dp |>
     Race  = factor(`RACE-LABEL`, levels = c("Black", "White"))
   )
 
-p3 <- ggplot(indiv, aes(CAREER_DECILE, rate * 100, color = Race, group = Race)) +
+p3 <- ggplot(indiv, aes(CAREER_QUARTILE, rate * 100, color = Race, group = Race)) +
   geom_line(linewidth = 0.8, alpha = 0.9) +
-  geom_point(size = 1.5, alpha = 0.8) +
+  geom_point(size = 2, alpha = 0.8) +
   facet_wrap(~Label, nrow = 2) +
   scale_color_manual(values = c(Black = "#1f4e79", White = "#538135"), name = NULL) +
-  scale_x_continuous(breaks = c(1, 5, 10),
-                     labels = c("Early", "Mid", "Late")) +
+  scale_x_continuous(breaks = 1:4, labels = paste0("Q", 1:4)) +
   scale_y_continuous(labels = percent_format(scale = 1)) +
   labs(
     title   = "Individual Prosecutor Trajectories — Top 10 by Case Volume",
-    x       = "Career Stage (Early → Late)",
+    x       = "Career Quartile (Q1 = earliest, Q4 = latest)",
     y       = "Deferred Adjudication Rate (%)",
     caption = paste0(
       "Notes: Each line shows deferred adjudication rates for Black (navy) and White (green) ",
-      "defendants across 10 equal career-stage bins for the 10 highest-volume prosecutors, ",
-      "1991–2015. Bins with fewer than 3 cases omitted. Y-axis is shared across panels. ",
-      "M.P. illustrates the learning-curve pattern most clearly: this prosecutor begins with ",
-      "a higher deferred rate for Black defendants and ends with a substantial pro-White gap, ",
-      "consistent with the aggregate trend. R.F. illustrates real heterogeneity — the gap ",
-      "does not widen across this prosecutor's career — showing that Figure 4 is not ",
-      "cherry-picked and that variation in individual trajectories is genuine."
+      "defendants across 4 career quartiles for the 10 highest-volume prosecutors, ",
+      "1991–2015. Bins with fewer than 5 cases omitted. Y-axis is shared across panels. ",
+      "Most prosecutors show a widening White–Black gap by Q4. R.F. illustrates genuine ",
+      "heterogeneity — the gap does not widen across this prosecutor's career — showing ",
+      "that the aggregate trend is not universal and that individual variation is real."
     )
   ) +
   theme_paper +
