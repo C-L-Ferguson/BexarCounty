@@ -453,4 +453,115 @@ tex3 <- c(tex3,
 
 write_tex(tex3, file.path(DATA_DIR, "bexar_table3.tex"))
 
+# ── Table 4: DA-era robustness (Hillig vs Reed) ───────────────────────────────
+
+fresh_prос_era <- dp |>
+  group_by(`INTAKE-PROSECUTOR`) |>
+  summarise(first_year = min(`CASE-YEAR`, na.rm = TRUE),
+            DA_AT_HIRE = first(DA_AT_HIRE), .groups = "drop") |>
+  filter(first_year >= 1991)
+
+hillig_prosecutors <- fresh_prос_era |> filter(DA_AT_HIRE != "Reed") |> pull(`INTAKE-PROSECUTOR`)
+reed_prosecutors   <- fresh_prос_era |> filter(DA_AT_HIRE == "Reed") |> pull(`INTAKE-PROSECUTOR`)
+
+fit_era_model <- function(prosecutor_ids) {
+  df_era <- dp |>
+    filter(`INTAKE-PROSECUTOR` %in% prosecutor_ids,
+           `RACE-LABEL` %in% c("Black", "White", "Latino"),
+           !is.na(OFFENSE_CATEGORY)) |>
+    mutate(
+      BLACK    = as.integer(`RACE-LABEL` == "Black"),
+      LATINO   = as.integer(`RACE-LABEL` == "Latino"),
+      APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed")
+    )
+  feglm(
+    DEFERRED ~ BLACK + LATINO +
+      BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+      `OFFENSE-CLASS` + OFFENSE_CATEGORY + APPOINTED |
+      `INTAKE-PROSECUTOR`,
+    data = df_era, family = binomial(), cluster = ~`INTAKE-PROSECUTOR`
+  )
+}
+
+fit_hillig <- fit_era_model(hillig_prosecutors)
+fit_reed   <- fit_era_model(reed_prosecutors)
+
+extract_era <- function(fit) {
+  as.data.frame(summary(fit)$coeftable) |>
+    tibble::rownames_to_column("term") |>
+    rename(estimate = Estimate, std.error = `Std. Error`, p.value = `Pr(>|z|)`) |>
+    filter(term %in% c("BLACK", "LATINO",
+                       "BLACK:PROSECUTOR_CASE_N", "LATINO:PROSECUTOR_CASE_N")) |>
+    mutate(
+      term_clean = case_when(
+        str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
+          "Black $\\times$ Career Case N",
+        str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
+          "Latino $\\times$ Career Case N",
+        term == "BLACK"  ~ "Black",
+        term == "LATINO" ~ "Latino"
+      ),
+      est_cell = fmt_est(estimate, p.value),
+      se_cell  = fmt_se(std.error)
+    )
+}
+
+era_hillig <- extract_era(fit_hillig)
+era_reed   <- extract_era(fit_reed)
+
+focal_era <- c("Black $\\times$ Career Case N", "Latino $\\times$ Career Case N",
+               "Black", "Latino")
+
+era_est <- era_hillig |>
+  select(term_clean, est_cell) |> rename(Hillig = est_cell) |>
+  left_join(era_reed |> select(term_clean, est_cell) |> rename(Reed = est_cell),
+            by = "term_clean") |>
+  mutate(term_clean = factor(term_clean, levels = focal_era)) |>
+  arrange(term_clean)
+
+era_se <- era_hillig |>
+  select(term_clean, se_cell) |> rename(Hillig = se_cell) |>
+  left_join(era_reed |> select(term_clean, se_cell) |> rename(Reed = se_cell),
+            by = "term_clean") |>
+  mutate(term_clean = factor(term_clean, levels = focal_era)) |>
+  arrange(term_clean)
+
+message("\n══ TABLE 4: DA-Era Robustness ══")
+print(era_est)
+
+tex4 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Learning Curve by DA Era: Hillig vs.\\ Reed Hires}",
+  "\\label{tab:era}",
+  "\\begin{tabular}{lcc}",
+  "\\hline\\hline",
+  " & Hillig-era hires & Reed-era hires \\\\",
+  " & (DA 1991--1998) & (DA 1999--2015) \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(era_est))) {
+  e <- era_est[i, ]; s <- era_se[i, ]
+  tex4 <- c(tex4,
+    paste0(e$term_clean, " & ", e$Hillig, " & ", e$Reed, " \\\\"),
+    paste0(" & ", s$Hillig, " & ", s$Reed, " \\\\"),
+    "& & \\\\"
+  )
+}
+
+tex4 <- c(tex4,
+  "\\hline",
+  paste0("$N$ & $", formatC(nobs(fit_hillig), format="d", big.mark="{,}"),
+         "$ & $", formatC(nobs(fit_reed), format="d", big.mark="{,}"), "$ \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Both columns estimate Specification (3) (prosecutor fixed effects)} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize on subsamples split by DA in office when prosecutor was hired.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize Standard errors clustered by prosecutor. $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex4, file.path(DATA_DIR, "bexar_table4.tex"))
+
 message("\nAll tables saved to ", DATA_DIR)
