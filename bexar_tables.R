@@ -557,7 +557,10 @@ tex4 <- c(tex4,
   "\\hline\\hline",
   "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Both columns estimate Specification (3) (prosecutor fixed effects)} \\\\",
   "\\multicolumn{3}{l}{\\footnotesize on subsamples split by DA in office when prosecutor was hired.} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize Standard errors clustered by prosecutor. $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize The interaction survives in both subsamples, ruling out the hypothesis that the learning} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize curve effect reflects office-wide changes in deferred adjudication practices rather than} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize within-prosecutor experience. Standard errors clustered by prosecutor.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
