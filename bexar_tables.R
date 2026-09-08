@@ -566,8 +566,7 @@ reed_prosecutors   <- fresh_prос_era |> filter(DA_AT_HIRE == "Reed") |> pull(`
 fit_era_model <- function(prosecutor_ids) {
   df_era <- dp |>
     filter(`INTAKE-PROSECUTOR` %in% prosecutor_ids,
-           `RACE-LABEL` %in% c("Black", "White", "Latino"),
-           !is.na(OFFENSE_CATEGORY)) |>
+           `RACE-LABEL` %in% c("Black", "White", "Latino")) |>
     mutate(
       BLACK    = as.integer(`RACE-LABEL` == "Black"),
       LATINO   = as.integer(`RACE-LABEL` == "Latino"),
@@ -577,7 +576,7 @@ fit_era_model <- function(prosecutor_ids) {
   feglm(
     DEFERRED ~ BLACK + LATINO +
       BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-      `OFFENSE-CLASS` + OFFENSE_CATEGORY + APPOINTED |
+      `OFFENSE-CLASS` + APPOINTED |
       `INTAKE-PROSECUTOR`,
     data = df_era, family = binomial(), cluster = ~`INTAKE-PROSECUTOR`
   )
@@ -655,11 +654,12 @@ tex4 <- c(tex4,
   paste0("$N$ & $", formatC(nobs(fit_hillig), format="d", big.mark="{,}"),
          "$ & $", formatC(nobs(fit_reed), format="d", big.mark="{,}"), "$ \\\\"),
   "\\hline\\hline",
-  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Both columns estimate Specification (3) (prosecutor fixed effects)} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize on subsamples split by DA in office when prosecutor was hired.} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize The interaction survives in both subsamples, ruling out the hypothesis that the learning} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize curve effect reflects office-wide changes in deferred adjudication practices rather than} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize within-prosecutor experience. Standard errors clustered by prosecutor.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Both columns estimate a prosecutor fixed-effects logistic model on subsamples} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize split by DA in office when the prosecutor was hired. Controls: felony severity class (F1--FS)} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize and attorney type. Offense-category indicators omitted to avoid sparse-cell separation in} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize the smaller subsamples. The interaction survives in both cohorts, ruling out the hypothesis} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize that the learning curve reflects office-wide policy shifts rather than within-prosecutor experience.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize Standard errors clustered by prosecutor.} \\\\",
   "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
