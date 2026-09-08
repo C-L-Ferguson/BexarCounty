@@ -200,34 +200,33 @@ tex0 <- c(
   section_head("Criminal History"),
   data_row("\\% With prior case in dataset", "Prior_pct"),
   "\\hline",
-  # \u2500\u2500 Defendant Demographics \u2500\u2500
-  section_head("Defendant Demographics"),
-  n_row(),
-  "\\hline",
-  # \u2500\u2500 Crime Type \u2500\u2500
+  # -- Crime Type --
   section_head("Crime Type (\\% of cases)"),
   data_row("First-degree felony (F1)", "F1_pct"),
   data_row("Second-degree felony (F2)", "F2_pct"),
   data_row("Third-degree felony (F3)",  "F3_pct"),
   data_row("State-jail felony (FS)",    "FS_pct"),
   "\\hline",
-  # \u2500\u2500 Defendant Representation \u2500\u2500
+  # -- Defendant Representation --
   section_head("Representation"),
   data_row("\\% Appointed counsel", "Appointed_pct"),
   data_row("Mean prosecutor career case $N$", "Mean_ProsCase_N", "%.0f"),
   "\\hline",
-  # \u2500\u2500 Prosecutor Characteristics \u2500\u2500
+  # -- Prosecutor Characteristics --
   section_head("Prosecutor Characteristics"),
   pros_row("\\# Prosecutors",               panelB$Value[1]),
   pros_row("Mean cases per prosecutor",      panelB$Value[2]),
   pros_row("Median cases per prosecutor",    panelB$Value[3]),
   pros_row("Mean career span (years)",       panelB$Value[4]),
-  pros_row("\\% crossing Hillig$\\to$Reed transition (1999)", panelB$Value[5]),
+  pros_row("\\% observed under both DA Hillig and DA Reed", panelB$Value[5]),
+  "\\hline",
+  # -- N at bottom --
+  n_row(),
   "\\hline\\hline",
   paste0("\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County, 1991--2015. Sample: Black, Latino, and White defendants} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later with 50+ cases (left-censoring excluded).} \\\\"),
-  paste0("\\multicolumn{5}{l}{\\footnotesize Prior case = defendant SID appears more than once in dataset. ",
-         "DA transition = prosecutor has cases both before and after 1999 (Hillig$\\to$Reed).} \\\\"),
+  paste0("\\multicolumn{5}{l}{\\footnotesize Prior case = defendant SID appears more than once in dataset (proxy for prior criminal contact).} \\\\"),
+  paste0("\\multicolumn{5}{l}{\\footnotesize DA transition = prosecutor handled cases under both District Attorney Hillig (1991--1998) and District Attorney Reed (1999--2014).} \\\\"),
   "\\end{tabular}",
   "\\end{table}"
 )

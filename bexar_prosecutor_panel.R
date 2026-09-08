@@ -75,7 +75,7 @@ dp <- dp |>
 # ── 5. DA administration cohort ───────────────────────────────────────────────
 # Approximate DA tenures in Bexar County (for hire-year coding):
 #   Canales:  ~1986–1990
-#   Millard:  1991–1998
+#   Hillig:   1991–1998
 #   Reed:     1999–2014
 #   LaHood:   2015–2018
 #   Gonzales: 2019–present
@@ -84,7 +84,7 @@ dp <- dp |>
 da_era <- function(year) {
   case_when(
     year <= 1990 ~ "Canales",
-    year <= 1998 ~ "Millard",
+    year <= 1998 ~ "Hillig",
     year <= 2014 ~ "Reed",
     year <= 2018 ~ "LaHood",
     TRUE         ~ "Gonzales"
