@@ -431,7 +431,7 @@ if (nrow(m7_est) > 0) {
 
   tex2 <- c(tex2,
     "\\hline\\hline",
-    paste0("\\multicolumn{", n_cols + 1, "}{l}{\\footnotesize \\textit{Notes:} Each column estimates the same model within a single offense class.} \\\\"),
+    paste0("\\multicolumn{", n_cols + 1, "}{l}{\\footnotesize \\textit{Notes:} Each column estimates the same model within a single offense class (offense category and attorney type controls).} \\\\"),
     paste0("\\multicolumn{", n_cols + 1, "}{l}{\\footnotesize Log-odds. Standard errors in parentheses. $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\"),
     "\\end{tabular}",
     "\\end{table}"

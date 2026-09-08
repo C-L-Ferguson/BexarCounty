@@ -150,7 +150,7 @@ m7_list <- map(c("F1", "F2", "F3", "FS"), function(ot) {
     run_logit(
       DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
         BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-        OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+        OFFENSE_CATEGORY + APPOINTED,
       sub, paste0("M7_", ot, "_only")),
     error = function(e) {
       message("  M7_", ot, " skipped: ", e$message)
