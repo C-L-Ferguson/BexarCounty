@@ -235,6 +235,7 @@ tex0 <- c(
 
 write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
 message("Table 0 done. Starting Table 1 block.")
+message("res columns: ", paste(names(res), collapse=", "))
 
 # ── SpecD: Prosecutor FE + Court FE (robustness check, from bexar_model_results.csv) ──
 # Pulled from CSV rather than re-fit inline to avoid near-collinearity with year FE.
