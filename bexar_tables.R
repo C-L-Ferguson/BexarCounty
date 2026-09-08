@@ -186,7 +186,8 @@ tex0 <- c(
   "\\caption{Summary Statistics}",
   "\\label{tab:desc}",
   "\\small",
-  "\\begin{tabular}{p{6cm}rrrr}",
+  "\\resizebox{\\textwidth}{!}{%",
+  "\\begin{tabular}{p{6.5cm}rrrr}",
   "\\hline\\hline",
   " & Black & Latino & White & All \\\\",
   "\\hline",
@@ -227,7 +228,7 @@ tex0 <- c(
   paste0("\\multicolumn{5}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later with 50+ cases (left-censoring excluded).} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize Prior case = defendant SID appears more than once in dataset (proxy for prior criminal contact).} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize DA transition = prosecutor handled cases under both District Attorney Hilbig (1991--1998) and District Attorney Reed (1999--2014).} \\\\"),
-  "\\end{tabular}",
+  "\\end{tabular}}",
   "\\end{table}"
 )
 
