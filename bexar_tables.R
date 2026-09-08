@@ -574,7 +574,7 @@ offense_labels5 <- c("F1 (first degree)", "F2 (second degree)",
                      "F3 (third degree)", "FS (state jail felony)")
 max_case_n5 <- max(df_pred$PROSECUTOR_CASE_N, na.rm = TRUE)
 modal_oc5   <- names(sort(table(df_pred$OFFENSE_CATEGORY), decreasing = TRUE))[1]
-mean_appt5  <- mean(df_pred$APPOINTED, na.rm = TRUE)
+mean_appt5  <- 1L  # modal value (appointed counsel is more common: 89,716 vs 68,743)
 
 t5_rows <- list()
 for (j in seq_along(offense_classes)) {
