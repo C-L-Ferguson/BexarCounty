@@ -129,7 +129,7 @@ pros_summary <- dp |>
 panelB <- tibble(
   Stat  = c("Number of prosecutors", "Mean cases per prosecutor",
             "Median cases per prosecutor", "Mean career span (years)",
-            "\\% crossing DA-administration transition"),
+            "\\% crossing Hillig\\to{}Reed transition (1999)"),
   Value = c(
     formatC(nrow(pros_summary), format = "d", big.mark = ","),
     sprintf("%.0f", mean(pros_summary$N_cases)),
@@ -222,12 +222,12 @@ tex0 <- c(
   pros_row("Mean cases per prosecutor",      panelB$Value[2]),
   pros_row("Median cases per prosecutor",    panelB$Value[3]),
   pros_row("Mean career span (years)",       panelB$Value[4]),
-  pros_row("\\% crossing DA transition",     panelB$Value[5]),
+  pros_row("\\% crossing Hillig$\\to$Reed transition (1999)", panelB$Value[5]),
   "\\hline\\hline",
   paste0("\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County, 1991--2015. Sample: Black, Latino, and White defendants} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later with 50+ cases (left-censoring excluded).} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize Prior case = defendant SID appears more than once in dataset. ",
-         "DA transition = Hillig$\\to$Reed or Reed$\\to$LaHood.} \\\\"),
+         "DA transition = prosecutor has cases both before and after 1999 (Hillig$\\to$Reed).} \\\\"),
   "\\end{tabular}",
   "\\end{table}"
 )

@@ -94,15 +94,13 @@ da_era <- function(year) {
 dp <- dp |>
   mutate(DA_AT_HIRE = da_era(FIRST_CASE_YEAR))
 
-# Flag prosecutors whose career spans a DA transition
-da_transitions <- c(1991, 1999, 2015, 2019)
-
+# Flag prosecutors whose career spans the Hillig->Reed transition (1999).
+# Only the 1999 boundary falls in the middle of the 1991-2015 sample window;
+# the 2015 boundary is the sample endpoint and would flag almost everyone.
 dp <- dp |>
   group_by(`INTAKE-PROSECUTOR`) |>
   mutate(
-    CROSSES_DA_TRANSITION = any(
-      purrr::map_lgl(da_transitions, ~ any(`CASE-YEAR` < .x) & any(`CASE-YEAR` >= .x))
-    )
+    CROSSES_DA_TRANSITION = any(`CASE-YEAR` < 1999) & any(`CASE-YEAR` >= 1999)
   ) |>
   ungroup()
 
