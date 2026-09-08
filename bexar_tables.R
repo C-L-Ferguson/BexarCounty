@@ -313,7 +313,7 @@ message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u255
 print(t1_est, n = Inf)
 
 # Build LaTeX
-specD_N <- nobs(fit_specD)
+specD_N <- 157245
 
 tex1 <- c(
   "\\begin{table}[htbp]",
