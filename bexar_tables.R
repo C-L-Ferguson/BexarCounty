@@ -51,6 +51,39 @@ dp_clean <- dp |>
   filter(`RACE-LABEL` %in% c("Black", "White", "Latino"),
          `INTAKE-PROSECUTOR` %in% fresh_prosecutors)
 
+# \u2500\u2500 Panel A: defendant characteristics by race \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+# Prior case proxy: defendant SID appears more than once in the full dataset
+defendant_counts <- dp |>
+  filter(!is.na(SID), SID != "") |>
+  count(SID)
+
+dp_clean <- dp_clean |>
+  mutate(HAS_PRIOR = as.integer(!is.na(SID) & SID != "" &
+                                  SID %in% defendant_counts$SID[defendant_counts$n > 1]))
+
+# Offense class shares (F1/F2/F3/FS only)
+offense_shares <- dp_clean |>
+  group_by(Race = `RACE-LABEL`) |>
+  summarise(
+    F1_pct = mean(`OFFENSE-CLASS` == "F1", na.rm = TRUE) * 100,
+    F2_pct = mean(`OFFENSE-CLASS` == "F2", na.rm = TRUE) * 100,
+    F3_pct = mean(`OFFENSE-CLASS` == "F3", na.rm = TRUE) * 100,
+    FS_pct = mean(`OFFENSE-CLASS` == "FS", na.rm = TRUE) * 100,
+    .groups = "drop"
+  )
+
+offense_all <- dp_clean |>
+  summarise(
+    Race   = "All",
+    F1_pct = mean(`OFFENSE-CLASS` == "F1", na.rm = TRUE) * 100,
+    F2_pct = mean(`OFFENSE-CLASS` == "F2", na.rm = TRUE) * 100,
+    F3_pct = mean(`OFFENSE-CLASS` == "F3", na.rm = TRUE) * 100,
+    FS_pct = mean(`OFFENSE-CLASS` == "FS", na.rm = TRUE) * 100,
+  )
+
+offense_all_df <- bind_rows(offense_shares, offense_all)
+
 desc <- dp_clean |>
   group_by(Race = `RACE-LABEL`) |>
   summarise(
@@ -59,6 +92,7 @@ desc <- dp_clean |>
     Dismissed_pct   = mean(DISMISSED,     na.rm = TRUE) * 100,
     GuiltyPlea_pct  = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
     Appointed_pct   = mean(`ATTORNEY-TYPE` == "Appointed", na.rm = TRUE) * 100,
+    Prior_pct       = mean(HAS_PRIOR,     na.rm = TRUE) * 100,
     Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE),
     .groups = "drop"
   )
@@ -71,24 +105,58 @@ overall <- dp_clean |>
     Dismissed_pct   = mean(DISMISSED,     na.rm = TRUE) * 100,
     GuiltyPlea_pct  = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
     Appointed_pct   = mean(`ATTORNEY-TYPE` == "Appointed", na.rm = TRUE) * 100,
+    Prior_pct       = mean(HAS_PRIOR,     na.rm = TRUE) * 100,
     Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE)
   )
 
 desc_all <- bind_rows(desc, overall) |>
+  left_join(offense_all_df, by = "Race") |>
   mutate(Race = factor(Race, levels = c("Black", "Latino", "White", "All"))) |>
   arrange(Race)
 
-message("\n\u2550\u2550 TABLE 0: Descriptive Statistics \u2550\u2550")
+# \u2500\u2500 Panel B: prosecutor-level summary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+pros_summary <- dp |>
+  filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors) |>
+  group_by(`INTAKE-PROSECUTOR`) |>
+  summarise(
+    N_cases     = n(),
+    Career_span = max(`CASE-YEAR`, na.rm = TRUE) - min(`CASE-YEAR`, na.rm = TRUE),
+    Crosses_DA  = first(CROSSES_DA_TRANSITION),
+    .groups = "drop"
+  )
+
+panelB <- tibble(
+  Stat  = c("Number of prosecutors", "Mean cases per prosecutor",
+            "Median cases per prosecutor", "Mean career span (years)",
+            "\\% crossing DA-administration transition"),
+  Value = c(
+    formatC(nrow(pros_summary), format = "d", big.mark = ","),
+    sprintf("%.0f", mean(pros_summary$N_cases)),
+    sprintf("%.0f", median(pros_summary$N_cases)),
+    sprintf("%.1f", mean(pros_summary$Career_span)),
+    sprintf("%.1f", mean(pros_summary$Crosses_DA, na.rm = TRUE) * 100)
+  )
+)
+
+message("\n== TABLE 0: Descriptive Statistics ==")
 print(desc_all)
+message("\nPanel B:")
+print(panelB)
+
+# \u2500\u2500 LaTeX output \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 tex0 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
-  "\\caption{Descriptive Statistics by Defendant Race}",
+  "\\caption{Descriptive Statistics}",
   "\\label{tab:desc}",
-  "\\begin{tabular}{lrrrrrr}",
+  "\\small",
+  "\\textbf{Panel A: Defendant Characteristics by Race}\\\\[4pt]",
+  "\\begin{tabular}{lrrrrrrrrrr}",
   "\\hline\\hline",
-  " & $N$ & Deferred (\\%) & Dismissed (\\%) & Guilty Plea (\\%) & Appointed (\\%) & Mean Career Case $N$ \\\\",
+  paste0(" & $N$ & Def. (\\%) & Dism. (\\%) & Plea (\\%) & Appt. (\\%) & Prior (\\%)",
+         " & F1 (\\%) & F2 (\\%) & F3 (\\%) & FS (\\%) \\\\"),
   "\\hline"
 )
 
@@ -102,15 +170,41 @@ for (i in seq_len(nrow(desc_all))) {
            sprintf("%.1f", r$Dismissed_pct), " & ",
            sprintf("%.1f", r$GuiltyPlea_pct), " & ",
            sprintf("%.1f", r$Appointed_pct), " & ",
-           sprintf("%.1f", r$Mean_ProsCase_N), " \\\\")
+           sprintf("%.1f", r$Prior_pct), " & ",
+           sprintf("%.1f", r$F1_pct), " & ",
+           sprintf("%.1f", r$F2_pct), " & ",
+           sprintf("%.1f", r$F3_pct), " & ",
+           sprintf("%.1f", r$FS_pct), " \\\\")
   )
 }
 
 tex0 <- c(tex0,
   "\\hline\\hline",
-  "\\multicolumn{7}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County. Sample: Black, Latino, and White defendants} \\\\",
-  "\\multicolumn{7}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later (left-censoring excluded).} \\\\",
-  "\\multicolumn{7}{l}{\\footnotesize Appointed = court-appointed counsel. Career Case $N$ = cumulative prosecutor caseload.} \\\\",
+  paste0("\\multicolumn{11}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County, 1991--2015. ",
+         "Sample: Black, Latino, and White defendants assigned to prosecutors} \\\\"),
+  paste0("\\multicolumn{11}{l}{\\footnotesize first observed 1991 or later. ",
+         "Prior = defendant SID appears more than once in the dataset (proxy for prior contact).} \\\\"),
+  paste0("\\multicolumn{11}{l}{\\footnotesize Appt. = court-appointed counsel. ",
+         "Offense class shares sum to less than 100\\% because non-standard classes are excluded.} \\\\"),
+  "\\end{tabular}",
+  "\\\\[8pt]",
+  "\\textbf{Panel B: Prosecutor Characteristics}\\\\[4pt]",
+  "\\begin{tabular}{lr}",
+  "\\hline\\hline",
+  "Statistic & Value \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(panelB))) {
+  tex0 <- c(tex0, paste0(panelB$Stat[i], " & ", panelB$Value[i], " \\\\"))
+}
+
+tex0 <- c(tex0,
+  "\\hline\\hline",
+  paste0("\\multicolumn{2}{l}{\\footnotesize \\textit{Notes:} Prosecutors first observed 1991 or later, ",
+         "with 50 or more felony cases, 1991--2015.} \\\\"),
+  paste0("\\multicolumn{2}{l}{\\footnotesize DA-transition crossing = prosecutor's career spans ",
+         "a change in District Attorney (Hillig/Reed/LaHood boundary years).} \\\\"),
   "\\end{tabular}",
   "\\end{table}"
 )
