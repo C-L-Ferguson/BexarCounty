@@ -186,7 +186,7 @@ tex0 <- c(
   "\\caption{Summary Statistics}",
   "\\label{tab:desc}",
   "\\small",
-  "\\begin{tabular}{lrrrr}",
+  "\\begin{tabular}{p{6cm}rrrr}",
   "\\hline\\hline",
   " & Black & Latino & White & All \\\\",
   "\\hline",
