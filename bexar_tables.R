@@ -93,7 +93,7 @@ desc <- dp_clean |>
     GuiltyPlea_pct  = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
     Appointed_pct   = mean(`ATTORNEY-TYPE` == "Appointed", na.rm = TRUE) * 100,
     Prior_pct       = mean(HAS_PRIOR,     na.rm = TRUE) * 100,
-    Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE),
+    Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE) / 100,
     .groups = "drop"
   )
 
@@ -106,7 +106,7 @@ overall <- dp_clean |>
     GuiltyPlea_pct  = mean(`GUILTY-PLEA`, na.rm = TRUE) * 100,
     Appointed_pct   = mean(`ATTORNEY-TYPE` == "Appointed", na.rm = TRUE) * 100,
     Prior_pct       = mean(HAS_PRIOR,     na.rm = TRUE) * 100,
-    Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE)
+    Mean_ProsCase_N = mean(PROSECUTOR_CASE_N, na.rm = TRUE) / 100
   )
 
 desc_all <- bind_rows(desc, overall) |>
@@ -211,7 +211,7 @@ tex0 <- c(
   # -- Defendant Representation --
   section_head("Representation"),
   data_row("\\% Appointed counsel", "Appointed_pct"),
-  data_row("Mean prosecutor career case $N$", "Mean_ProsCase_N", "%.0f"),
+  data_row("Mean prosecutor career case $N$ (per 100 cases)", "Mean_ProsCase_N", "%.1f"),
   "\\hline",
   # -- Prosecutor Characteristics --
   section_head("Prosecutor Characteristics"),
@@ -244,12 +244,13 @@ df_specD <- dp |>
   mutate(
     BLACK    = as.integer(`RACE-LABEL` == "Black"),
     LATINO   = as.integer(`RACE-LABEL` == "Latino"),
-    APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed")
+    APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed"),
+    PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100
   )
 
 fit_specD <- feglm(
   DEFERRED ~ BLACK + LATINO +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     `OFFENSE-CLASS` + OFFENSE_CATEGORY + APPOINTED |
     `INTAKE-PROSECUTOR` + `CASE-YEAR`,
   data    = df_specD,
@@ -264,13 +265,13 @@ specD_coefs <- as.data.frame(summary(fit_specD)$coeftable) |>
 
 specD_focal <- specD_coefs |>
   filter(term %in% c("BLACK", "LATINO",
-                     "BLACK:PROSECUTOR_CASE_N", "LATINO:PROSECUTOR_CASE_N")) |>
+                     "BLACK:PROSECUTOR_CASE_N100", "LATINO:PROSECUTOR_CASE_N100")) |>
   mutate(
     term_clean = case_when(
-      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
-        "Black $\\times$ Career Case N",
-      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
-        "Latino $\\times$ Career Case N",
+      str_detect(term, "BLACK.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      str_detect(term, "LATINO.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
       term == "BLACK"  ~ "Black",
       term == "LATINO" ~ "Latino"
     ),
@@ -282,21 +283,21 @@ specD_focal <- specD_coefs |>
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
 
 model_order <- c("SpecA_OffenseOnly", "SpecB_YearFE", "SpecC_ProsecutorFE", "SpecC_WithPriors")
-focal_rows  <- c("Black $\\times$ Career Case N",
-                 "Latino $\\times$ Career Case N",
-                 "Black", "Latino", "Career Case N")
+focal_rows  <- c("Black $\\times$ Career Case $N$ (per 100)",
+                 "Latino $\\times$ Career Case $N$ (per 100)",
+                 "Black", "Latino", "Career Case $N$ (per 100)")
 
 table_data <- res |>
   filter(model %in% model_order) |>
   mutate(
     term_clean = case_when(
-      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
-        "Black $\\times$ Career Case N",
-      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
-        "Latino $\\times$ Career Case N",
-      term == "BLACK"             ~ "Black",
-      term == "LATINO"            ~ "Latino",
-      term == "PROSECUTOR_CASE_N" ~ "Career Case N",
+      str_detect(term, "BLACK.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      str_detect(term, "LATINO.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"                ~ "Black",
+      term == "LATINO"               ~ "Latino",
+      term == "PROSECUTOR_CASE_N100" ~ "Career Case $N$ (per 100)",
       TRUE ~ NA_character_
     ),
     est_cell = fmt_est(estimate, p.value),
@@ -392,10 +393,10 @@ m7_data <- res |>
   mutate(
     offense = str_extract(model, "F[123S]"),
     term_clean = case_when(
-      str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
-        "Black $\\times$ Career Case N",
-      str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
-        "Latino $\\times$ Career Case N",
+      str_detect(term, "BLACK.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      str_detect(term, "LATINO.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
       term == "BLACK"  ~ "Black",
       term == "LATINO" ~ "Latino",
       TRUE ~ NA_character_
@@ -466,22 +467,23 @@ df_pred <- dp |>
   filter(`RACE-LABEL` %in% c("Black", "White", "Latino"),
          `INTAKE-PROSECUTOR` %in% fresh_prosecutors) |>
   mutate(
-    BLACK            = as.integer(`RACE-LABEL` == "Black"),
-    LATINO           = as.integer(`RACE-LABEL` == "Latino"),
-    DEFERRED         = as.integer(DEFERRED),
-    APPOINTED        = as.integer(`ATTORNEY-TYPE` == "Appointed"),
-    OFFENSE_TYPE     = `OFFENSE-TYPE`
+    BLACK                = as.integer(`RACE-LABEL` == "Black"),
+    LATINO               = as.integer(`RACE-LABEL` == "Latino"),
+    DEFERRED             = as.integer(DEFERRED),
+    APPOINTED            = as.integer(`ATTORNEY-TYPE` == "Appointed"),
+    OFFENSE_TYPE         = `OFFENSE-TYPE`,
+    PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100
   )
 
 fit_pred <- glm(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
   data   = df_pred |> filter(!is.na(OFFENSE_CATEGORY)),
   family = binomial()
 )
 
-q_breaks <- quantile(df_pred$PROSECUTOR_CASE_N, probs = seq(0, 1, 0.2), na.rm = TRUE)
+q_breaks <- quantile(df_pred$PROSECUTOR_CASE_N100, probs = seq(0, 1, 0.2), na.rm = TRUE)
 q1_mid   <- mean(c(q_breaks[1], q_breaks[2]))
 q4_mid   <- mean(c(q_breaks[4], q_breaks[5]))
 
@@ -490,10 +492,10 @@ ref_dist <- df_pred |>
   count(OFFENSE_TYPE, OFFENSE_CATEGORY) |>
   mutate(wt = n / sum(n))
 
-pred_cell <- function(black, case_n) {
+pred_cell <- function(black, case_n100) {
   g <- ref_dist |>
     mutate(BLACK = black, LATINO = 0,
-           PROSECUTOR_CASE_N = case_n, APPOINTED = 1)
+           PROSECUTOR_CASE_N100 = case_n100, APPOINTED = 1)
   weighted.mean(predict(fit_pred, newdata = g, type = "response"), g$wt)
 }
 
@@ -520,9 +522,9 @@ for (j in seq_along(offense_types)) {
     count(OFFENSE_TYPE, OFFENSE_CATEGORY) |>
     mutate(wt = n / sum(n))
   if (nrow(ref_ot) == 0) next
-  pred_ot <- function(black, case_n) {
+  pred_ot <- function(black, case_n100) {
     g <- ref_ot |> mutate(BLACK = black, LATINO = 0,
-                           PROSECUTOR_CASE_N = case_n, APPOINTED = 1)
+                           PROSECUTOR_CASE_N100 = case_n100, APPOINTED = 1)
     weighted.mean(predict(fit_pred, newdata = g, type = "response"), g$wt)
   }
   wq1 <- pred_ot(0, q1_mid); bq1 <- pred_ot(1, q1_mid)
@@ -590,11 +592,12 @@ fit_era_model <- function(prosecutor_ids) {
     mutate(
       BLACK    = as.integer(`RACE-LABEL` == "Black"),
       LATINO   = as.integer(`RACE-LABEL` == "Latino"),
-      APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed")
+      APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed"),
+      PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100
     )
   feglm(
     DEFERRED ~ BLACK + LATINO +
-      BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+      BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
       `OFFENSE-CLASS` + OFFENSE_CATEGORY + APPOINTED |
       `INTAKE-PROSECUTOR`,
     data = df_era, family = binomial(), cluster = ~`INTAKE-PROSECUTOR`
@@ -609,13 +612,13 @@ extract_era <- function(fit) {
     tibble::rownames_to_column("term") |>
     rename(estimate = Estimate, std.error = `Std. Error`, p.value = `Pr(>|z|)`) |>
     filter(term %in% c("BLACK", "LATINO",
-                       "BLACK:PROSECUTOR_CASE_N", "LATINO:PROSECUTOR_CASE_N")) |>
+                       "BLACK:PROSECUTOR_CASE_N100", "LATINO:PROSECUTOR_CASE_N100")) |>
     mutate(
       term_clean = case_when(
-        str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK") ~
-          "Black $\\times$ Career Case N",
-        str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO") ~
-          "Latino $\\times$ Career Case N",
+        str_detect(term, "BLACK.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*BLACK") ~
+          "Black $\\times$ Career Case $N$ (per 100)",
+        str_detect(term, "LATINO.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*LATINO") ~
+          "Latino $\\times$ Career Case $N$ (per 100)",
         term == "BLACK"  ~ "Black",
         term == "LATINO" ~ "Latino"
       ),
@@ -627,7 +630,7 @@ extract_era <- function(fit) {
 era_hillig <- extract_era(fit_hillig)
 era_reed   <- extract_era(fit_reed)
 
-focal_era <- c("Black $\\times$ Career Case N", "Latino $\\times$ Career Case N",
+focal_era <- c("Black $\\times$ Career Case $N$ (per 100)", "Latino $\\times$ Career Case $N$ (per 100)",
                "Black", "Latino")
 
 era_est <- era_hillig |>
@@ -690,16 +693,16 @@ write_tex(tex4, file.path(DATA_DIR, "bexar_table4.tex"))
 offense_classes <- c("F1", "F2", "F3", "FS")
 offense_labels5 <- c("F1 (first degree)", "F2 (second degree)",
                      "F3 (third degree)", "FS (state jail felony)")
-max_case_n5 <- max(df_pred$PROSECUTOR_CASE_N, na.rm = TRUE)
+max_case_n5 <- max(df_pred$PROSECUTOR_CASE_N100, na.rm = TRUE)
 modal_oc5   <- names(sort(table(df_pred$OFFENSE_CATEGORY), decreasing = TRUE))[1]
 mean_appt5  <- 1L  # modal value (appointed counsel is more common: 89,716 vs 68,743)
 
 t5_rows <- list()
 for (j in seq_along(offense_classes)) {
   oc <- offense_classes[j]
-  nd_start <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N=1,
+  nd_start <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N100=0.01,
                      OFFENSE_TYPE=oc, OFFENSE_CATEGORY=modal_oc5, APPOINTED=mean_appt5)
-  nd_peak  <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N=max_case_n5,
+  nd_peak  <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N100=max_case_n5,
                      OFFENSE_TYPE=oc, OFFENSE_CATEGORY=modal_oc5, APPOINTED=mean_appt5)
   nd_start$pred <- predict(fit_pred, newdata=nd_start, type="response")
   nd_peak$pred  <- predict(fit_pred, newdata=nd_peak,  type="response")
