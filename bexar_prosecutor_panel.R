@@ -75,7 +75,7 @@ dp <- dp |>
 # ── 5. DA administration cohort ───────────────────────────────────────────────
 # Approximate DA tenures in Bexar County (for hire-year coding):
 #   Canales:  ~1986–1990
-#   Hillig:   1991–1998
+#   Hilbig:   1991–1998
 #   Reed:     1999–2014
 #   LaHood:   2015–2018
 #   Gonzales: 2019–present
@@ -84,7 +84,7 @@ dp <- dp |>
 da_era <- function(year) {
   case_when(
     year <= 1990 ~ "Canales",
-    year <= 1998 ~ "Hillig",
+    year <= 1998 ~ "Hilbig",
     year <= 2014 ~ "Reed",
     year <= 2018 ~ "LaHood",
     TRUE         ~ "Gonzales"
@@ -94,7 +94,7 @@ da_era <- function(year) {
 dp <- dp |>
   mutate(DA_AT_HIRE = da_era(FIRST_CASE_YEAR))
 
-# Flag prosecutors whose career spans the Hillig->Reed transition (1999).
+# Flag prosecutors whose career spans the Hilbig->Reed transition (1999).
 # Only the 1999 boundary falls in the middle of the 1991-2015 sample window;
 # the 2015 boundary is the sample endpoint and would flag almost everyone.
 dp <- dp |>

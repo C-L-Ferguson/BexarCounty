@@ -129,7 +129,7 @@ pros_summary <- dp |>
 panelB <- tibble(
   Stat  = c("Number of prosecutors", "Mean cases per prosecutor",
             "Median cases per prosecutor", "Mean career span (years)",
-            "\\% crossing Hillig\\to{}Reed transition (1999)"),
+            "\\% crossing Hilbig\\to{}Reed transition (1999)"),
   Value = c(
     formatC(nrow(pros_summary), format = "d", big.mark = ","),
     sprintf("%.0f", mean(pros_summary$N_cases)),
@@ -218,7 +218,7 @@ tex0 <- c(
   pros_row("Mean cases per prosecutor",      panelB$Value[2]),
   pros_row("Median cases per prosecutor",    panelB$Value[3]),
   pros_row("Mean career span (years)",       panelB$Value[4]),
-  pros_row("\\% observed under both DA Hillig and DA Reed", panelB$Value[5]),
+  pros_row("\\% observed under both DA Hilbig and DA Reed", panelB$Value[5]),
   "\\hline",
   # -- N at bottom --
   n_row(),
@@ -226,7 +226,7 @@ tex0 <- c(
   paste0("\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County, 1991--2015. Sample: Black, Latino, and White defendants} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later with 50+ cases (left-censoring excluded).} \\\\"),
   paste0("\\multicolumn{5}{l}{\\footnotesize Prior case = defendant SID appears more than once in dataset (proxy for prior criminal contact).} \\\\"),
-  paste0("\\multicolumn{5}{l}{\\footnotesize DA transition = prosecutor handled cases under both District Attorney Hillig (1991--1998) and District Attorney Reed (1999--2014).} \\\\"),
+  paste0("\\multicolumn{5}{l}{\\footnotesize DA transition = prosecutor handled cases under both District Attorney Hilbig (1991--1998) and District Attorney Reed (1999--2014).} \\\\"),
   "\\end{tabular}",
   "\\end{table}"
 )
@@ -569,7 +569,7 @@ tex3 <- c(tex3,
 
 write_tex(tex3, file.path(DATA_DIR, "bexar_table3.tex"))
 
-# ── Table 4: DA-era robustness (Hillig vs Reed) ───────────────────────────────
+# ── Table 4: DA-era robustness (Hilbig vs Reed) ───────────────────────────────
 
 fresh_prос_era <- dp |>
   group_by(`INTAKE-PROSECUTOR`) |>
@@ -629,14 +629,14 @@ focal_era <- c("Black $\\times$ Career Case N", "Latino $\\times$ Career Case N"
                "Black", "Latino")
 
 era_est <- era_hillig |>
-  select(term_clean, est_cell) |> rename(Hillig = est_cell) |>
+  select(term_clean, est_cell) |> rename(Hilbig = est_cell) |>
   left_join(era_reed |> select(term_clean, est_cell) |> rename(Reed = est_cell),
             by = "term_clean") |>
   mutate(term_clean = factor(term_clean, levels = focal_era)) |>
   arrange(term_clean)
 
 era_se <- era_hillig |>
-  select(term_clean, se_cell) |> rename(Hillig = se_cell) |>
+  select(term_clean, se_cell) |> rename(Hilbig = se_cell) |>
   left_join(era_reed |> select(term_clean, se_cell) |> rename(Reed = se_cell),
             by = "term_clean") |>
   mutate(term_clean = factor(term_clean, levels = focal_era)) |>
@@ -648,11 +648,11 @@ print(era_est)
 tex4 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
-  "\\caption{Learning Curve by DA Era: Hillig vs.\\ Reed Hires}",
+  "\\caption{Learning Curve by DA Era: Hilbig vs.\\ Reed Hires}",
   "\\label{tab:era}",
   "\\begin{tabular}{lcc}",
   "\\hline\\hline",
-  " & Hillig-era hires & Reed-era hires \\\\",
+  " & Hilbig-era hires & Reed-era hires \\\\",
   " & (DA 1991--1998) & (DA 1999--2015) \\\\",
   "\\hline"
 )
@@ -660,8 +660,8 @@ tex4 <- c(
 for (i in seq_len(nrow(era_est))) {
   e <- era_est[i, ]; s <- era_se[i, ]
   tex4 <- c(tex4,
-    paste0(e$term_clean, " & ", e$Hillig, " & ", e$Reed, " \\\\"),
-    paste0(" & ", s$Hillig, " & ", s$Reed, " \\\\"),
+    paste0(e$term_clean, " & ", e$Hilbig, " & ", e$Reed, " \\\\"),
+    paste0(" & ", s$Hilbig, " & ", s$Reed, " \\\\"),
     "& & \\\\"
   )
 }
