@@ -623,8 +623,8 @@ tex5 <- c(tex5,
   "\\hline\\hline",
   "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} White--Black gap in predicted probability of deferred adjudication (percentage points).} \\\\",
   "\\multicolumn{4}{l}{\\footnotesize Predicted from Specification (1) at career case 1 (start) and maximum career case $N$ (peak),} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize holding offense category and attorney type at modal values. F1 shows the largest amplification} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize effect: a 3.6 pp gap at career start nearly triples to 10.6 pp by career peak.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize holding offense category and attorney type at modal values (appointed counsel). F1 shows the} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize largest amplification: a 2.4 pp gap at career start more than triples to 8.5 pp by career peak.} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
