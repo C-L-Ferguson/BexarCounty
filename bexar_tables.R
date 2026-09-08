@@ -10,7 +10,7 @@
 #   - Cells: coefficient (log-odds) with SE in parentheses below
 #   - Significance stars: ***p<0.01  **p<0.05  *p<0.10
 
-DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)

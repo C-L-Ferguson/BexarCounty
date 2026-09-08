@@ -7,7 +7,7 @@
 #   PROSECUTOR_CAREER_YEAR — case year minus first case year for that prosecutor
 #   EXP_QUINTILE        — quintile of PROSECUTOR_CASE_N within each prosecutor
 
-DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"  # all inputs and outputs here
+DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"  # all inputs and outputs here
 
 library(tidyverse)
 library(arrow)

@@ -11,7 +11,7 @@
 #             M7 (within offense type), M8 (plea-conditional), M9 (straight conviction)
 # Output: bexar_model_results.csv
 
-DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)

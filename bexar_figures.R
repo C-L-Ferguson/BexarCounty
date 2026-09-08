@@ -10,7 +10,7 @@
 #   - Absolute percentage-point gaps as primary metric
 #   - Clean minimal aesthetic
 
-DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
 FIG_DIR  <- file.path(DATA_DIR, "bexar_figures")
 
 library(tidyverse)

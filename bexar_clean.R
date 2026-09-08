@@ -8,8 +8,8 @@ library(tidyverse)
 library(arrow)
 library(lubridate)
 
-DATA_DIR  <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
-OUTPUT_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"  # where .parquet/.csv outputs go
+DATA_DIR  <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
+OUTPUT_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"  # where .parquet/.csv outputs go
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 

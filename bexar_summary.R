@@ -2,7 +2,7 @@
 # Requires: bexar_prosecutor_panel_1990_2015.parquet (from bexar_prosecutor_panel.R)
 # Outputs: bexar_summary_table.csv, printed diagnostics
 
-DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)
