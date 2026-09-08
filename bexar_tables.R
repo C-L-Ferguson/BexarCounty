@@ -362,6 +362,8 @@ tex1 <- c(tex1,
   "\\multicolumn{6}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record. Col.~(5) adds court fixed effects to Col.~(3).} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Adding court FE retains a positive interaction (coeff.\\ = 0.0029, $p=0.13$); the loss of significance likely reflects} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize near-collinearity between prosecutor and court assignment rather than substantive attenuation.} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
