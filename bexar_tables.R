@@ -233,6 +233,8 @@ tex0 <- c(
   "\\end{table}"
 )
 
+message("tex0 length: ", length(tex0))
+message("tex0 classes: ", paste(sapply(tex0, class), collapse=",") |> substr(1, 200))
 write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
 message("Table 0 done. Starting Table 1 block.")
 message("res columns: ", paste(names(res), collapse=", "))
