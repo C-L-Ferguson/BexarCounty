@@ -3,7 +3,7 @@
 # install.packages(c("tidyverse", "arrow", "broom", "fixest"))
 #
 # Key outcome: DEFERRED
-# Key exposure: PROSECUTOR_CASE_N × RACE interactions
+# Key exposure: PROSECUTOR_CASE_N100 × RACE interactions
 # The interaction coefficient tests whether the White-Black gap widens with experience.
 #
 # Main table specs: SpecA (offense controls), SpecB (+ year FE), SpecC (prosecutor FE)
@@ -46,6 +46,9 @@ fresh_prosecutors <- df |>
 
 df <- df |> filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors)
 
+# Rescale experience to per-100-cases for readable table coefficients
+df <- df |> mutate(PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100)
+
 # Defendant career sequence (proxy for prior record)
 df <- df |>
   arrange(SID, `CASE-YEAR`) |>
@@ -84,15 +87,15 @@ run_feglm <- function(formula, data, fe_vars, label) {
 # ── M1: Baseline — no controls ────────────────────────────────────────────────
 
 m1 <- run_logit(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N,
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100,
   df, "M1_Baseline")
 
 # ── M2: Offense type and category controls ────────────────────────────────────
 
 m2 <- run_logit(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   "M2_OffenseFE")
@@ -100,20 +103,20 @@ m2 <- run_logit(
 # ── Spec A: Clean baseline — offense + attorney controls (main table col 1) ───
 
 specA <- run_logit(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   "SpecA_OffenseOnly")
 
 # ── Spec B: Add case year FE (main table col 2) ───────────────────────────────
-# Note: CASE_YEAR_FE is collinear with PROSECUTOR_CASE_N by construction;
+# Note: CASE_YEAR_FE is collinear with PROSECUTOR_CASE_N100 by construction;
 # interaction surviving here is a conservative test.
 # Uses feglm for speed (glm + tidy hangs on 24 year FE dummies).
 
 specB <- run_feglm(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   fe_vars = "CASE_YEAR_FE",
@@ -123,8 +126,8 @@ specB <- run_feglm(
 # Within-prosecutor identification; answers selection critique.
 
 specC <- run_feglm(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   fe_vars = "PROSECUTOR",
@@ -133,8 +136,8 @@ specC <- run_feglm(
 # ── M6: Appointed counsel only (robustness) ───────────────────────────────────
 
 m6 <- run_logit(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY,
   df |> filter(`ATTORNEY-TYPE` == "Appointed", !is.na(OFFENSE_CATEGORY)),
   "M6_AppointedOnly")
@@ -145,8 +148,8 @@ m7_list <- map(c("F1", "F2", "F3", "FS"), function(ot) {
   sub <- df |> filter(`OFFENSE-CLASS` == ot, !is.na(OFFENSE_CATEGORY))
   tryCatch(
     run_logit(
-      DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-        BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+      DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+        BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
         OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
       sub, paste0("M7_", ot, "_only")),
     error = function(e) {
@@ -162,8 +165,8 @@ m7 <- bind_rows(m7_list)
 df_plea <- df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY))
 
 m8 <- run_logit(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
   df_plea,
   "M8_DeferredConditionalOnPlea")
@@ -171,8 +174,8 @@ m8 <- run_logit(
 # ── M9: Straight conviction via plea (robustness) ─────────────────────────────
 
 m9 <- run_logit(
-  STRAIGHT_CONVICTION ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  STRAIGHT_CONVICTION ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
   df_plea |> mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
   "M9_StraightConviction")
@@ -180,8 +183,8 @@ m9 <- run_logit(
 # ── Spec D: Prosecutor + Court crossed FE (addresses judge-learning concern) ──
 
 specD <- run_feglm(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   fe_vars = c("PROSECUTOR", "COURT"),
@@ -190,28 +193,28 @@ specD <- run_feglm(
 # ── SpecA/C with defendant prior-record proxy (robustness) ───────────────────
 
 specA_priors <- run_logit(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   "SpecA_WithPriors")
 
 specC_priors <- run_feglm(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N,
   df |> filter(!is.na(OFFENSE_CATEGORY)),
   fe_vars = "PROSECUTOR",
   "SpecC_WithPriors")
 
 # ── SpecC controlling for caseload composition drift (addresses selection) ────
-# Falsification showed PROSECUTOR_CASE_N predicts declining Black/Latino share.
+# Falsification showed PROSECUTOR_CASE_N100 predicts declining Black/Latino share.
 # PRED_BLACK_SHARE is the within-prosecutor model-implied Black probability
 # given offense type/category; adding it tests whether the interaction reflects
 # caseload sorting rather than differential treatment.
 
 black_share_fit <- feglm(
-  BLACK ~ PROSECUTOR_CASE_N + OFFENSE_TYPE + OFFENSE_CATEGORY | PROSECUTOR,
+  BLACK ~ PROSECUTOR_CASE_N100 + OFFENSE_TYPE + OFFENSE_CATEGORY | PROSECUTOR,
   data = df |> filter(!is.na(OFFENSE_CATEGORY)),
   family = binomial()
 )
@@ -221,8 +224,8 @@ df_comp <- df |>
   mutate(PRED_BLACK_SHARE = fitted(black_share_fit))
 
 specC_comp <- run_feglm(
-  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N +
-    BLACK:PROSECUTOR_CASE_N + LATINO:PROSECUTOR_CASE_N +
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N +
     PRED_BLACK_SHARE,
   df_comp,
@@ -238,14 +241,14 @@ all_results <- bind_rows(m1, m2, specA, specB, specC, specD, m6, m7, m8, m9,
 write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
 message("\nSaved: bexar_model_results.csv")
 
-message("\n── KEY COEFFICIENTS: BLACK × PROSECUTOR_CASE_N ──")
+message("\n── KEY COEFFICIENTS: BLACK × PROSECUTOR_CASE_N100 ──")
 all_results |>
-  filter(str_detect(term, "BLACK.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*BLACK")) |>
+  filter(str_detect(term, "BLACK.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*BLACK")) |>
   select(model, term, estimate, std.error, p.value, OR) |>
   print(n = Inf)
 
-message("\n── KEY COEFFICIENTS: LATINO × PROSECUTOR_CASE_N ──")
+message("\n── KEY COEFFICIENTS: LATINO × PROSECUTOR_CASE_N100 ──")
 all_results |>
-  filter(str_detect(term, "LATINO.*PROSECUTOR_CASE_N|PROSECUTOR_CASE_N.*LATINO")) |>
+  filter(str_detect(term, "LATINO.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*LATINO")) |>
   select(model, term, estimate, std.error, p.value, OR) |>
   print(n = Inf)
