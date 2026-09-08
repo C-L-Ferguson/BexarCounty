@@ -294,12 +294,7 @@ t1_est <- table_data |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---", SpecC_WithPriors = "---")) |>
-  left_join(
-    specD_focal |> select(term_clean, est_cell) |> rename(SpecD_ProsecutorCourtFE = est_cell),
-    by = "term_clean"
-  ) |>
-  replace_na(list(SpecD_ProsecutorCourtFE = "---"))
+  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---", SpecC_WithPriors = "---"))
 
 t1_se <- table_data |>
   filter(term_clean %in% focal_rows) |>
@@ -307,12 +302,7 @@ t1_se <- table_data |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = "", SpecC_WithPriors = "")) |>
-  left_join(
-    specD_focal |> select(term_clean, se_cell) |> rename(SpecD_ProsecutorCourtFE = se_cell),
-    by = "term_clean"
-  ) |>
-  replace_na(list(SpecD_ProsecutorCourtFE = ""))
+  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = "", SpecC_WithPriors = ""))
 
 message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u2550\u2550")
 print(t1_est, n = Inf)
@@ -326,10 +316,10 @@ tex1 <- c(
   "\\caption{Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients}",
   "\\label{tab:main}",
   "\\resizebox{\\textwidth}{!}{%",
-  "\\begin{tabular}{lccccc}",
+  "\\begin{tabular}{lcccc}",
   "\\hline\\hline",
-  " & (1) & (2) & (3) & (4) & (5) \\\\",
-  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors & Prosecutor $+$ Court FE \\\\",
+  " & (1) & (2) & (3) & (4) \\\\",
+  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors \\\\",
   "\\hline"
 )
 
@@ -339,32 +329,30 @@ for (i in seq_len(nrow(t1_est))) {
   tex1 <- c(tex1,
     paste0(e$term_clean, " & ", e$SpecA_OffenseOnly,
            " & ", e$SpecB_YearFE, " & ", e$SpecC_ProsecutorFE,
-           " & ", e$SpecC_WithPriors, " & ", e$SpecD_ProsecutorCourtFE, " \\\\"),
+           " & ", e$SpecC_WithPriors, " \\\\"),
     paste0(" & ", s$SpecA_OffenseOnly,
            " & ", s$SpecB_YearFE, " & ", s$SpecC_ProsecutorFE,
-           " & ", s$SpecC_WithPriors, " & ", s$SpecD_ProsecutorCourtFE, " \\\\"),
-    "& & & & & \\\\"
+           " & ", s$SpecC_WithPriors, " \\\\"),
+    "& & & & \\\\"
   )
 }
 
 tex1 <- c(tex1,
   "\\hline",
-  "Offense type \\& category FE & Yes & Yes & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & Yes & Yes & Yes \\\\",
-  "Case year FE & No & Yes & No & No & No \\\\",
-  "Prosecutor FE & No & No & Yes & Yes & Yes \\\\",
-  "Court FE & No & No & No & No & Yes \\\\",
-  "Defendant case $N$ & No & No & No & Yes & No \\\\",
-  "Sample & 1991+ & 1991+ & 1991+ & 1991+ & 1991+ \\\\",
-  paste0("$N$ & $162{,}218$ & $157{,}791$ & $157{,}372$ & $157{,}372$ & $",
-         formatC(specD_N, format = "d", big.mark = "{,}"), "$ \\\\"),
+  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes & Yes \\\\",
+  "Case year FE & No & Yes & No & No \\\\",
+  "Prosecutor FE & No & No & Yes & Yes \\\\",
+  "Defendant case $N$ & No & No & No & Yes \\\\",
+  "Sample & 1991+ & 1991+ & 1991+ & 1991+ \\\\",
+  "$N$ & $162{,}218$ & $157{,}791$ & $157{,}372$ & $157{,}372$ \\\\",
   "\\hline\\hline",
-  "\\multicolumn{6}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{6}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
-  "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record. Col.~(5) adds court fixed effects to Col.~(3).} \\\\",
-  "\\multicolumn{6}{l}{\\footnotesize Adding court FE retains a positive interaction (coeff.\\ = 0.0029, $p=0.13$); the loss of significance likely reflects} \\\\",
-  "\\multicolumn{6}{l}{\\footnotesize near-collinearity between prosecutor and court assignment rather than substantive attenuation.} \\\\",
-  "\\multicolumn{6}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Adding court fixed effects to Col.~(3) retains a positive interaction (coeff.\\ = 0.0029, $p=0.13$); the loss of} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize significance likely reflects near-collinearity between prosecutor and court assignment.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
 )
