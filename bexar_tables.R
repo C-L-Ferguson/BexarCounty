@@ -14,6 +14,7 @@ DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)
+library(fixest)
 
 res <- read_csv(file.path(DATA_DIR, "bexar_model_results.csv"), show_col_types = FALSE)
 
@@ -233,6 +234,7 @@ tex0 <- c(
 )
 
 write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
+message("Table 0 done. Starting Table 1 block.")
 
 # ── SpecD: Prosecutor FE + Court FE (robustness check, from bexar_model_results.csv) ──
 # Pulled from CSV rather than re-fit inline to avoid near-collinearity with year FE.
