@@ -219,7 +219,7 @@ tex0 <- c(
   pros_row("Mean cases per prosecutor",      panelB$Value[2]),
   pros_row("Median cases per prosecutor",    panelB$Value[3]),
   pros_row("Mean career span (years)",       panelB$Value[4]),
-  pros_row("\\% spanning Hilbig--Reed transition (pre/post 1999)", panelB$Value[5]),
+  pros_row("\\% spanning Hilbig--Reed transition", panelB$Value[5]),
   "\\hline",
   # -- N at bottom --
   n_row(),
