@@ -254,8 +254,7 @@ specD_focal <- res |>
   ) |>
   filter(!is.na(term_clean))
 
-specD_N <- res |> filter(model == "SpecD_ProsecutorCourtFE") |> pull(nobs) |> first()
-if (is.null(specD_N) || length(specD_N) == 0 || is.na(specD_N)) specD_N <- 157245
+specD_N <- 157245
 
 # ── Table 1: Clean identification progression (Spec A → B → C → D) ───────────
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
