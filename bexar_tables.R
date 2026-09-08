@@ -144,67 +144,90 @@ print(desc_all)
 message("\nPanel B:")
 print(panelB)
 
-# \u2500\u2500 LaTeX output \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+# \u2500\u2500 LaTeX output \u2014 section-grouped, race columns (Shaffer E.1 format) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+# Columns: row label | Black | Latino | White | All
+# Row groups: Case Outcomes, Criminal History, Defendant Demographics,
+#             Crime Type, Prosecutor Characteristics
+
+races <- c("Black", "Latino", "White", "All")
+
+# Helper: pull a formatted value from desc_all for a given race and field
+cell <- function(race, field, fmt = "%.1f") {
+  val <- desc_all[[field]][desc_all$Race == race]
+  sprintf(fmt, val)
+}
+
+# Helper: emit one data row across all race columns
+data_row <- function(label, field, fmt = "%.1f") {
+  vals <- sapply(races, function(r) cell(r, field, fmt))
+  paste0("\\quad ", label, " & ", paste(vals, collapse = " & "), " \\\\")
+}
+
+# N row (integer formatting)
+n_row <- function() {
+  vals <- sapply(races, function(r) {
+    formatC(desc_all$N[desc_all$Race == r], format = "d", big.mark = ",")
+  })
+  paste0("\\quad $N$ & ", paste(vals, collapse = " & "), " \\\\")
+}
+
+# Prosecutor panel row: single value spanning all columns
+pros_row <- function(label, value) {
+  paste0("\\quad ", label, " & \\multicolumn{4}{r}{", value, "} \\\\")
+}
+
+section_head <- function(label) {
+  paste0("\\multicolumn{5}{l}{\\textit{", label, "}} \\\\")
+}
 
 tex0 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
-  "\\caption{Descriptive Statistics}",
+  "\\caption{Summary Statistics}",
   "\\label{tab:desc}",
   "\\small",
-  "\\textbf{Panel A: Defendant Characteristics by Race}\\\\[4pt]",
-  "\\begin{tabular}{lrrrrrrrrrr}",
+  "\\begin{tabular}{lrrrr}",
   "\\hline\\hline",
-  paste0(" & $N$ & Def. (\\%) & Dism. (\\%) & Plea (\\%) & Appt. (\\%) & Prior (\\%)",
-         " & F1 (\\%) & F2 (\\%) & F3 (\\%) & FS (\\%) \\\\"),
-  "\\hline"
-)
-
-for (i in seq_len(nrow(desc_all))) {
-  r <- desc_all[i, ]
-  if (r$Race == "All") tex0 <- c(tex0, "\\hline")
-  tex0 <- c(tex0,
-    paste0(r$Race, " & ",
-           formatC(r$N, format = "d", big.mark = ","), " & ",
-           sprintf("%.1f", r$Deferred_pct), " & ",
-           sprintf("%.1f", r$Dismissed_pct), " & ",
-           sprintf("%.1f", r$GuiltyPlea_pct), " & ",
-           sprintf("%.1f", r$Appointed_pct), " & ",
-           sprintf("%.1f", r$Prior_pct), " & ",
-           sprintf("%.1f", r$F1_pct), " & ",
-           sprintf("%.1f", r$F2_pct), " & ",
-           sprintf("%.1f", r$F3_pct), " & ",
-           sprintf("%.1f", r$FS_pct), " \\\\")
-  )
-}
-
-tex0 <- c(tex0,
+  " & Black & Latino & White & All \\\\",
+  "\\hline",
+  # \u2500\u2500 Case Outcomes \u2500\u2500
+  section_head("Case Outcomes"),
+  data_row("\\% Deferred adjudication", "Deferred_pct"),
+  data_row("\\% Dismissed",             "Dismissed_pct"),
+  data_row("\\% Guilty plea",           "GuiltyPlea_pct"),
+  "\\hline",
+  # \u2500\u2500 Criminal History \u2500\u2500
+  section_head("Criminal History"),
+  data_row("\\% With prior case in dataset", "Prior_pct"),
+  "\\hline",
+  # \u2500\u2500 Defendant Demographics \u2500\u2500
+  section_head("Defendant Demographics"),
+  n_row(),
+  "\\hline",
+  # \u2500\u2500 Crime Type \u2500\u2500
+  section_head("Crime Type (\\% of cases)"),
+  data_row("First-degree felony (F1)", "F1_pct"),
+  data_row("Second-degree felony (F2)", "F2_pct"),
+  data_row("Third-degree felony (F3)",  "F3_pct"),
+  data_row("State-jail felony (FS)",    "FS_pct"),
+  "\\hline",
+  # \u2500\u2500 Defendant Representation \u2500\u2500
+  section_head("Representation"),
+  data_row("\\% Appointed counsel", "Appointed_pct"),
+  data_row("Mean prosecutor career case $N$", "Mean_ProsCase_N", "%.0f"),
+  "\\hline",
+  # \u2500\u2500 Prosecutor Characteristics \u2500\u2500
+  section_head("Prosecutor Characteristics"),
+  pros_row("\\# Prosecutors",               panelB$Value[1]),
+  pros_row("Mean cases per prosecutor",      panelB$Value[2]),
+  pros_row("Median cases per prosecutor",    panelB$Value[3]),
+  pros_row("Mean career span (years)",       panelB$Value[4]),
+  pros_row("\\% crossing DA transition",     panelB$Value[5]),
   "\\hline\\hline",
-  paste0("\\multicolumn{11}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County, 1991--2015. ",
-         "Sample: Black, Latino, and White defendants assigned to prosecutors} \\\\"),
-  paste0("\\multicolumn{11}{l}{\\footnotesize first observed 1991 or later. ",
-         "Prior = defendant SID appears more than once in the dataset (proxy for prior contact).} \\\\"),
-  paste0("\\multicolumn{11}{l}{\\footnotesize Appt. = court-appointed counsel. ",
-         "Offense class shares sum to less than 100\\% because non-standard classes are excluded.} \\\\"),
-  "\\end{tabular}",
-  "\\\\[8pt]",
-  "\\textbf{Panel B: Prosecutor Characteristics}\\\\[4pt]",
-  "\\begin{tabular}{lr}",
-  "\\hline\\hline",
-  "Statistic & Value \\\\",
-  "\\hline"
-)
-
-for (i in seq_len(nrow(panelB))) {
-  tex0 <- c(tex0, paste0(panelB$Stat[i], " & ", panelB$Value[i], " \\\\"))
-}
-
-tex0 <- c(tex0,
-  "\\hline\\hline",
-  paste0("\\multicolumn{2}{l}{\\footnotesize \\textit{Notes:} Prosecutors first observed 1991 or later, ",
-         "with 50 or more felony cases, 1991--2015.} \\\\"),
-  paste0("\\multicolumn{2}{l}{\\footnotesize DA-transition crossing = prosecutor's career spans ",
-         "a change in District Attorney (Hillig/Reed/LaHood boundary years).} \\\\"),
+  paste0("\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Felony cases, Bexar County, 1991--2015. Sample: Black, Latino, and White defendants} \\\\"),
+  paste0("\\multicolumn{5}{l}{\\footnotesize assigned to prosecutors first observed 1991 or later with 50+ cases (left-censoring excluded).} \\\\"),
+  paste0("\\multicolumn{5}{l}{\\footnotesize Prior case = defendant SID appears more than once in dataset. ",
+         "DA transition = Hillig$\\to$Reed or Reed$\\to$LaHood.} \\\\"),
   "\\end{tabular}",
   "\\end{table}"
 )
