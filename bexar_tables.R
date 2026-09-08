@@ -342,6 +342,7 @@ tex1 <- c(
   "\\centering",
   "\\caption{Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients}",
   "\\label{tab:main}",
+  "\\resizebox{\\textwidth}{!}{%",
   "\\begin{tabular}{lccccc}",
   "\\hline\\hline",
   " & (1) & (2) & (3) & (4) & (5) \\\\",
@@ -378,7 +379,7 @@ tex1 <- c(tex1,
   "\\multicolumn{6}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record. Col.~(5) adds year FE to Col.~(3).} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
-  "\\end{tabular}",
+  "\\end{tabular}}",
   "\\end{table}"
 )
 
