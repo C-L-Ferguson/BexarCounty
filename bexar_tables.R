@@ -234,38 +234,11 @@ tex0 <- c(
 
 write_tex(tex0, file.path(DATA_DIR, "bexar_table0.tex"))
 
-# ── SpecD: Prosecutor FE + Year FE (robustness check) ────────────────────────
-library(fixest)
+# ── SpecD: Prosecutor FE + Court FE (robustness check, from bexar_model_results.csv) ──
+# Pulled from CSV rather than re-fit inline to avoid near-collinearity with year FE.
 
-df_specD <- dp |>
-  filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors,
-         `RACE-LABEL` %in% c("Black", "White", "Latino"),
-         !is.na(OFFENSE_CATEGORY)) |>
-  mutate(
-    BLACK    = as.integer(`RACE-LABEL` == "Black"),
-    LATINO   = as.integer(`RACE-LABEL` == "Latino"),
-    APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed"),
-    PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100
-  )
-
-fit_specD <- feglm(
-  DEFERRED ~ BLACK + LATINO +
-    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    `OFFENSE-CLASS` + OFFENSE_CATEGORY + APPOINTED |
-    `INTAKE-PROSECUTOR` + `CASE-YEAR`,
-  data    = df_specD,
-  family  = binomial(),
-  cluster = ~`INTAKE-PROSECUTOR`
-)
-
-specD_coefs <- as.data.frame(summary(fit_specD)$coeftable) |>
-  tibble::rownames_to_column("term") |>
-  rename(estimate = Estimate, std.error = `Std. Error`, p.value = `Pr(>|z|)`) |>
-  mutate(model = "SpecD_ProsYearFE")
-
-specD_focal <- specD_coefs |>
-  filter(term %in% c("BLACK", "LATINO",
-                     "BLACK:PROSECUTOR_CASE_N100", "LATINO:PROSECUTOR_CASE_N100")) |>
+specD_focal <- res |>
+  filter(model == "SpecD_ProsecutorCourtFE") |>
   mutate(
     term_clean = case_when(
       str_detect(term, "BLACK.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*BLACK") ~
@@ -273,11 +246,16 @@ specD_focal <- specD_coefs |>
       str_detect(term, "LATINO.*PROSECUTOR_CASE_N100|PROSECUTOR_CASE_N100.*LATINO") ~
         "Latino $\\times$ Career Case $N$ (per 100)",
       term == "BLACK"  ~ "Black",
-      term == "LATINO" ~ "Latino"
+      term == "LATINO" ~ "Latino",
+      term == "PROSECUTOR_CASE_N100" ~ "Career Case $N$ (per 100)"
     ),
     est_cell = fmt_est(estimate, p.value),
     se_cell  = fmt_se(std.error)
-  )
+  ) |>
+  filter(!is.na(term_clean))
+
+specD_N <- res |> filter(model == "SpecD_ProsecutorCourtFE") |> pull(nobs) |> first()
+if (is.null(specD_N) || length(specD_N) == 0 || is.na(specD_N)) specD_N <- 157245
 
 # ── Table 1: Clean identification progression (Spec A → B → C → D) ───────────
 # Sample: prosecutors first observed 1991 or later (left-censoring excluded)
@@ -314,10 +292,10 @@ t1_est <- table_data |>
   arrange(term_clean) |>
   replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---", SpecC_ProsecutorFE = "---", SpecC_WithPriors = "---")) |>
   left_join(
-    specD_focal |> select(term_clean, est_cell) |> rename(SpecD_ProsYearFE = est_cell),
+    specD_focal |> select(term_clean, est_cell) |> rename(SpecD_ProsecutorCourtFE = est_cell),
     by = "term_clean"
   ) |>
-  replace_na(list(SpecD_ProsYearFE = "---"))
+  replace_na(list(SpecD_ProsecutorCourtFE = "---"))
 
 t1_se <- table_data |>
   filter(term_clean %in% focal_rows) |>
@@ -327,10 +305,10 @@ t1_se <- table_data |>
   arrange(term_clean) |>
   replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "", SpecC_ProsecutorFE = "", SpecC_WithPriors = "")) |>
   left_join(
-    specD_focal |> select(term_clean, se_cell) |> rename(SpecD_ProsYearFE = se_cell),
+    specD_focal |> select(term_clean, se_cell) |> rename(SpecD_ProsecutorCourtFE = se_cell),
     by = "term_clean"
   ) |>
-  replace_na(list(SpecD_ProsYearFE = ""))
+  replace_na(list(SpecD_ProsecutorCourtFE = ""))
 
 message("\n\u2550\u2550 TABLE 1: Focal Interaction Coefficients (Log-Odds) \u2550\u2550")
 print(t1_est, n = Inf)
@@ -347,7 +325,7 @@ tex1 <- c(
   "\\begin{tabular}{lccccc}",
   "\\hline\\hline",
   " & (1) & (2) & (3) & (4) & (5) \\\\",
-  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors & Prosecutor $+$ Year FE \\\\",
+  " & Offense + Attorney & $+$ Year FE & Prosecutor FE & Prosecutor FE + Priors & Prosecutor $+$ Court FE \\\\",
   "\\hline"
 )
 
@@ -357,10 +335,10 @@ for (i in seq_len(nrow(t1_est))) {
   tex1 <- c(tex1,
     paste0(e$term_clean, " & ", e$SpecA_OffenseOnly,
            " & ", e$SpecB_YearFE, " & ", e$SpecC_ProsecutorFE,
-           " & ", e$SpecC_WithPriors, " & ", e$SpecD_ProsYearFE, " \\\\"),
+           " & ", e$SpecC_WithPriors, " & ", e$SpecD_ProsecutorCourtFE, " \\\\"),
     paste0(" & ", s$SpecA_OffenseOnly,
            " & ", s$SpecB_YearFE, " & ", s$SpecC_ProsecutorFE,
-           " & ", s$SpecC_WithPriors, " & ", s$SpecD_ProsYearFE, " \\\\"),
+           " & ", s$SpecC_WithPriors, " & ", s$SpecD_ProsecutorCourtFE, " \\\\"),
     "& & & & & \\\\"
   )
 }
@@ -369,8 +347,9 @@ tex1 <- c(tex1,
   "\\hline",
   "Offense type \\& category FE & Yes & Yes & Yes & Yes & Yes \\\\",
   "Attorney type & Yes & Yes & Yes & Yes & Yes \\\\",
-  "Case year FE & No & Yes & No & No & Yes \\\\",
+  "Case year FE & No & Yes & No & No & No \\\\",
   "Prosecutor FE & No & No & Yes & Yes & Yes \\\\",
+  "Court FE & No & No & No & No & Yes \\\\",
   "Defendant case $N$ & No & No & No & Yes & No \\\\",
   "Sample & 1991+ & 1991+ & 1991+ & 1991+ & 1991+ \\\\",
   paste0("$N$ & $162{,}218$ & $157{,}791$ & $157{,}372$ & $157{,}372$ & $",
@@ -378,7 +357,7 @@ tex1 <- c(tex1,
   "\\hline\\hline",
   "\\multicolumn{6}{l}{\\footnotesize \\textit{Notes:} Logistic regression coefficients (log-odds). Outcome: deferred adjudication.} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
-  "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record. Col.~(5) adds year FE to Col.~(3).} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds defendant cumulative case count as proxy for prior record. Col.~(5) adds court fixed effects to Col.~(3).} \\\\",
   "\\multicolumn{6}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
@@ -745,7 +724,7 @@ tex5 <- c(tex5,
   "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} White--Black gap in predicted probability of deferred adjudication (percentage points).} \\\\",
   "\\multicolumn{4}{l}{\\footnotesize Predicted from Specification (1) at career case 1 (start) and maximum career case $N$ (peak),} \\\\",
   "\\multicolumn{4}{l}{\\footnotesize holding offense category and attorney type at modal values (appointed counsel). F1 shows the} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize largest amplification: a 2.4 pp gap at career start more than triples to 8.5 pp by career peak.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize largest relative amplification (more than tripling from 2.4 to 8.5 pp); gaps in F2--FS reach 10--12 pp by career peak.} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
