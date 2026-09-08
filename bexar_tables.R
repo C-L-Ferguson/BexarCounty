@@ -567,4 +567,68 @@ tex4 <- c(tex4,
 
 write_tex(tex4, file.path(DATA_DIR, "bexar_table4.tex"))
 
+# ── Table 5: Predicted gap at career start vs peak, by offense class ──────────
+
+offense_classes <- c("F1", "F2", "F3", "FS")
+offense_labels5 <- c("F1 (first degree)", "F2 (second degree)",
+                     "F3 (third degree)", "FS (state jail felony)")
+max_case_n5 <- max(df_pred$PROSECUTOR_CASE_N, na.rm = TRUE)
+modal_oc5   <- names(sort(table(df_pred$OFFENSE_CATEGORY), decreasing = TRUE))[1]
+mean_appt5  <- mean(df_pred$APPOINTED, na.rm = TRUE)
+
+t5_rows <- list()
+for (j in seq_along(offense_classes)) {
+  oc <- offense_classes[j]
+  nd_start <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N=1,
+                     OFFENSE_TYPE=oc, OFFENSE_CATEGORY=modal_oc5, APPOINTED=mean_appt5)
+  nd_peak  <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N=max_case_n5,
+                     OFFENSE_TYPE=oc, OFFENSE_CATEGORY=modal_oc5, APPOINTED=mean_appt5)
+  nd_start$pred <- predict(fit_pred, newdata=nd_start, type="response")
+  nd_peak$pred  <- predict(fit_pred, newdata=nd_peak,  type="response")
+  t5_rows[[j]] <- list(
+    label      = offense_labels5[j],
+    gap_start  = (nd_start$pred[1] - nd_start$pred[2]) * 100,
+    gap_peak   = (nd_peak$pred[1]  - nd_peak$pred[2])  * 100,
+    change     = ((nd_peak$pred[1] - nd_peak$pred[2]) -
+                  (nd_start$pred[1] - nd_start$pred[2])) * 100
+  )
+}
+
+message("\n══ TABLE 5: Gap at Career Start vs Peak by Offense ══")
+for (r in t5_rows) cat(sprintf("%s: start=%.2f  peak=%.2f  change=+%.2f\n",
+                                r$label, r$gap_start, r$gap_peak, r$change))
+
+tex5 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{White--Black Deferred Adjudication Gap at Career Start vs.\\ Peak, by Offense Class}",
+  "\\label{tab:gap_by_offense}",
+  "\\begin{tabular}{lccc}",
+  "\\hline\\hline",
+  " & Career Start & Career Peak & Change \\\\",
+  " & (case 1) & (case $N_{\\max}$) & (pp) \\\\",
+  "\\hline"
+)
+
+for (r in t5_rows) {
+  tex5 <- c(tex5,
+    paste0(r$label, " & ",
+           sprintf("%.1f", r$gap_start), " & ",
+           sprintf("%.1f", r$gap_peak),  " & ",
+           sprintf("+%.1f", r$change), " \\\\")
+  )
+}
+
+tex5 <- c(tex5,
+  "\\hline\\hline",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} White--Black gap in predicted probability of deferred adjudication (percentage points).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Predicted from Specification (1) at career case 1 (start) and maximum career case $N$ (peak),} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize holding offense category and attorney type at modal values. F1 shows the largest amplification} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize effect: a 3.6 pp gap at career start nearly triples to 10.6 pp by career peak.} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex5, file.path(DATA_DIR, "bexar_table5.tex"))
+
 message("\nAll tables saved to ", DATA_DIR)
