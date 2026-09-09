@@ -121,13 +121,13 @@ p1 <- ggplot(fig1_data, aes(EXP_QUARTILE, gap)) +
     title    = "White–Black Deferred Adjudication Gap by Prosecutor Experience Quartile",
     x        = "Experience Quartile (Q1 = earliest cases, Q4 = latest)",
     y        = "Gap (percentage points)",
-    caption  = paste0(
+    caption  = str_wrap(paste0(
       "Notes: Gap = White deferred rate minus Black deferred rate, in percentage points. ",
       "Shaded bands are 95% confidence intervals. Quartiles based on cumulative prosecutor caseload. ",
       "Sample: felony cases, prosecutors first observed 1991 or later, 1991–2015. ",
       "See Table 1 for regression-based estimates controlling for offense type, attorney type, ",
       "and prosecutor identity. ***p<0.01 **p<0.05 *p<0.10."
-    )
+    ), width = 140)
   ) +
   theme_paper
 
