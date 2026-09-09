@@ -131,7 +131,7 @@ p1 <- ggplot(fig1_data, aes(EXP_QUARTILE, gap)) +
   ) +
   theme_paper
 
-save_fig(p1, "fig1_gap_by_quartile.png", w = 12, h = 5)
+save_fig(p1, "fig1_gap_by_quartile.png", w = 12, h = 5.5)
 
 # ── Figure 2: Both groups trajectory — rates on same chart ────────────────────
 
