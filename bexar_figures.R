@@ -298,7 +298,7 @@ dp_out <- dp_raw |>
 
 both_traj_out <- dp_out |>
   filter(`RACE-LABEL` %in% c("Black", "White")) |>
-  mutate(exp_bin = ntile(OUTTAKE_CASE_N, 8)) |>
+  mutate(exp_bin = ntile(OUTTAKE_CASE_N, 5)) |>
   group_by(exp_bin, Race = `RACE-LABEL`) |>
   summarise(
     N    = n(),
@@ -315,11 +315,11 @@ p5 <- ggplot(both_traj_out, aes(exp_bin, rate * 100, color = Race, group = Race)
   geom_point(size = 2.5) +
   scale_color_manual(values = c(Black = "#1f4e79", White = "#538135")) +
   scale_fill_manual(values  = c(Black = "#1f4e79", White = "#538135")) +
-  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  scale_x_continuous(breaks = 1:5, labels = paste0("Q", 1:5)) +
   scale_y_continuous(labels = percent_format(scale = 1)) +
   labs(
     title   = "Deferred Adjudication Rate by Race and Outtake Prosecutor Experience",
-    x       = "Experience Bin (B1 = earliest cases, B8 = latest)",
+    x       = "Experience Quintile (Q1 = earliest cases, Q5 = latest)",
     y       = "Deferred Adjudication Rate (%)",
     color   = NULL, fill = NULL,
     caption = paste0(
@@ -336,7 +336,7 @@ save_fig(p5, "fig5_outtake_trajectory.png")
 
 gap_out <- dp_out |>
   filter(`RACE-LABEL` %in% c("Black", "White")) |>
-  mutate(exp_bin = ntile(OUTTAKE_CASE_N, 8)) |>
+  mutate(exp_bin = ntile(OUTTAKE_CASE_N, 5)) |>
   group_by(exp_bin, `RACE-LABEL`) |>
   summarise(n = n(), rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
   pivot_wider(names_from = `RACE-LABEL`, values_from = c(n, rate)) |>
@@ -355,11 +355,11 @@ p6 <- ggplot(gap_out, aes(exp_bin, gap)) +
   geom_line(color = "#1f4e79", linewidth = 1.2) +
   geom_point(color = "#1f4e79", size = 2.5) +
   geom_text(aes(label = label), vjust = -1, size = 3, color = "#1f4e79") +
-  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  scale_x_continuous(breaks = 1:5, labels = paste0("Q", 1:5)) +
   scale_y_continuous(limits = c(0, 16)) +
   labs(
     title   = "White–Black Deferred Adjudication Gap by Outtake Prosecutor Experience",
-    x       = "Experience Bin (B1 = earliest cases, B8 = latest)",
+    x       = "Experience Quintile (Q1 = earliest cases, Q5 = latest)",
     y       = "Gap (percentage points)",
     caption = paste0(
       "Notes: Gap = White deferred rate minus Black deferred rate, in percentage points. ",
@@ -429,7 +429,7 @@ cohort_split_out <- dp_out |>
   mutate(
     cohort  = ifelse(start_year <= 2000, "Early cohort (started ≤2000)",
                                          "Late cohort (started >2000)"),
-    exp_bin = ntile(OUTTAKE_CASE_N, 8)
+    exp_bin = ntile(OUTTAKE_CASE_N, 5)
   ) |>
   group_by(cohort, exp_bin, `RACE-LABEL`) |>
   summarise(n = n(), rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
@@ -448,7 +448,7 @@ p8 <- ggplot(cohort_split_out, aes(exp_bin, gap)) +
   geom_line(color = "#1f4e79", linewidth = 1.2) +
   geom_point(color = "#1f4e79", size = 2.5) +
   facet_wrap(~cohort) +
-  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  scale_x_continuous(breaks = 1:5, labels = paste0("Q", 1:5)) +
   labs(
     title   = "White–Black Gap by Experience Bin — Early vs. Late Cohorts (Outtake)",
     x       = "Experience Bin (B1 = earliest, B8 = latest)",
