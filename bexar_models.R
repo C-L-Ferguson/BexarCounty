@@ -89,6 +89,7 @@ run_feglm <- function(formula, data, fe_vars, label) {
   message("Model: ", label, "  (N = ", nrow(data), ")")
   fit <- tryCatch(
     feglm(formula, data = data, fixef = fe_vars, family = binomial(),
+          cluster = fe_vars[1],
           fixef.tol = 1e-4, fixef.iter = 50, iter = 50),
     error = function(e) { message("  ERROR: ", e$message); NULL }
   )
