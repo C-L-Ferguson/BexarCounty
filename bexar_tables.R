@@ -445,14 +445,27 @@ df_pred <- dp |>
     DEFERRED             = as.integer(DEFERRED),
     APPOINTED            = as.integer(`ATTORNEY-TYPE` == "Appointed"),
     OFFENSE_TYPE         = `OFFENSE-TYPE`,
-    PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100
+    PROSECUTOR_CASE_N100 = PROSECUTOR_CASE_N / 100,
+    OFFENSE_CATEGORY2 = case_when(
+      str_detect(`OFFENSE-DESC`, "POSS CS|POSS W/I DEL CS|POSS W/INT DEL CS|MAN/DEL CS|DEL CS|POSS MARIJ") ~ "Drug",
+      str_detect(`OFFENSE-DESC`, "BURGLARY|BURG HAB|BURG VEHICLE") ~ "Burglary",
+      str_detect(`OFFENSE-DESC`, "EVADING ARREST") ~ "Evading",
+      str_detect(`OFFENSE-DESC`, "MURDER|HOMICIDE|MANSLAUGHTER") ~ "Homicide",
+      str_detect(`OFFENSE-DESC`, "AGG ASSLT|ASSLT|INJURY TO CHILD|RETALIATION") ~ "Assault",
+      str_detect(`OFFENSE-DESC`, "FORG|CREDIT/DEBIT|FRAUD|THEFT|UNAUTH USE VEH|CRIM MISCH") ~ "Property",
+      str_detect(`OFFENSE-DESC`, "DWI|DRIV WHILE INTOX") ~ "DWI",
+      str_detect(`OFFENSE-DESC`, "SEX|RAPE|INDECENCY|SEXUAL") ~ "Sex",
+      str_detect(`OFFENSE-DESC`, "WEAPON|WPN|CARRY") ~ "Weapon",
+      TRUE ~ "Other"
+    ),
+    OFFENSE_CATEGORY2 = fct_relevel(OFFENSE_CATEGORY2, "Other")
   )
 
 fit_pred <- glm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
-  data   = df_pred |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data   = df_pred |> filter(!is.na(OFFENSE_CATEGORY2)),
   family = binomial()
 )
 
@@ -461,8 +474,8 @@ q1_mid   <- mean(c(q_breaks[1], q_breaks[2]))
 q4_mid   <- mean(c(q_breaks[4], q_breaks[5]))
 
 ref_dist <- df_pred |>
-  filter(!is.na(OFFENSE_CATEGORY), APPOINTED == 1) |>
-  count(OFFENSE_TYPE, OFFENSE_CATEGORY) |>
+  filter(!is.na(OFFENSE_CATEGORY2), APPOINTED == 1) |>
+  count(OFFENSE_TYPE, OFFENSE_CATEGORY2) |>
   mutate(wt = n / sum(n))
 
 pred_cell <- function(black, case_n100) {
@@ -491,8 +504,8 @@ ot_rows <- list()
 for (j in seq_along(offense_types)) {
   ot <- offense_types[j]
   ref_ot <- df_pred |>
-    filter(!is.na(OFFENSE_CATEGORY), APPOINTED == 1, OFFENSE_TYPE == ot) |>
-    count(OFFENSE_TYPE, OFFENSE_CATEGORY) |>
+    filter(!is.na(OFFENSE_CATEGORY2), APPOINTED == 1, OFFENSE_TYPE == ot) |>
+    count(OFFENSE_TYPE, OFFENSE_CATEGORY2) |>
     mutate(wt = n / sum(n))
   if (nrow(ref_ot) == 0) next
   pred_ot <- function(black, case_n100) {
