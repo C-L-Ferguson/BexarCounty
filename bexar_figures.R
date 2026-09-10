@@ -282,4 +282,184 @@ p4 <- ggplot(appt_traj, aes(EXP_QUARTILE, rate * 100, color = Race, group = Race
 
 save_fig(p4, "fig4_appointed_only.png")
 
+# ── Outtake prosecutor figures ─────────────────────────────────────────────────
+# Build outtake career case count (ordered by OUTTAKE-PROSECUTOR × CASE-DATE)
+
+dp_out <- dp_raw |>
+  filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors,
+         !is.na(`OUTTAKE-PROSECUTOR`)) |>
+  arrange(`OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  mutate(OUTTAKE_CASE_N = row_number()) |>
+  ungroup() |>
+  mutate(OUTTAKE_CASE_N100 = OUTTAKE_CASE_N / 100)
+
+# ── Figure 5: Outtake both-groups trajectory (8 bins) ─────────────────────────
+
+both_traj_out <- dp_out |>
+  filter(`RACE-LABEL` %in% c("Black", "White")) |>
+  mutate(exp_bin = ntile(OUTTAKE_CASE_N, 8)) |>
+  group_by(exp_bin, Race = `RACE-LABEL`) |>
+  summarise(
+    N    = n(),
+    rate = mean(DEFERRED, na.rm = TRUE),
+    se   = sqrt(rate * (1 - rate) / N),
+    .groups = "drop"
+  ) |>
+  mutate(Race = factor(Race, levels = c("Black", "White")))
+
+p5 <- ggplot(both_traj_out, aes(exp_bin, rate * 100, color = Race, group = Race)) +
+  geom_ribbon(aes(ymin = (rate - 1.96*se)*100, ymax = (rate + 1.96*se)*100, fill = Race),
+              alpha = 0.10, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = c(Black = "#1f4e79", White = "#538135")) +
+  scale_fill_manual(values  = c(Black = "#1f4e79", White = "#538135")) +
+  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  labs(
+    title   = "Deferred Adjudication Rate by Race and Outtake Prosecutor Experience",
+    x       = "Experience Bin (B1 = earliest cases, B8 = latest)",
+    y       = "Deferred Adjudication Rate (%)",
+    color   = NULL, fill = NULL,
+    caption = paste0(
+      "Notes: Shaded bands are 95% confidence intervals. Experience bins based on cumulative ",
+      "outtake prosecutor caseload. Sample: Black and White defendants in felony cases, ",
+      "prosecutors first observed 1991 or later, 1991–2015."
+    )
+  ) +
+  theme_paper
+
+save_fig(p5, "fig5_outtake_trajectory.png")
+
+# ── Figure 6: Outtake W-B gap (8 bins, labeled) ───────────────────────────────
+
+gap_out <- dp_out |>
+  filter(`RACE-LABEL` %in% c("Black", "White")) |>
+  mutate(exp_bin = ntile(OUTTAKE_CASE_N, 8)) |>
+  group_by(exp_bin, `RACE-LABEL`) |>
+  summarise(n = n(), rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = c(n, rate)) |>
+  mutate(
+    gap   = (rate_White - rate_Black) * 100,
+    se    = sqrt((rate_White * (1 - rate_White) / n_White) +
+                 (rate_Black * (1 - rate_Black) / n_Black)) * 100,
+    ci_lo = gap - 1.96 * se,
+    ci_hi = gap + 1.96 * se,
+    label = paste0("+", round(gap, 1), "pp")
+  )
+
+p6 <- ggplot(gap_out, aes(exp_bin, gap)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#1f4e79") +
+  geom_line(color = "#1f4e79", linewidth = 1.2) +
+  geom_point(color = "#1f4e79", size = 2.5) +
+  geom_text(aes(label = label), vjust = -1, size = 3, color = "#1f4e79") +
+  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  scale_y_continuous(limits = c(0, 16)) +
+  labs(
+    title   = "White–Black Deferred Adjudication Gap by Outtake Prosecutor Experience",
+    x       = "Experience Bin (B1 = earliest cases, B8 = latest)",
+    y       = "Gap (percentage points)",
+    caption = paste0(
+      "Notes: Gap = White deferred rate minus Black deferred rate, in percentage points. ",
+      "Shaded bands are 95% confidence intervals. Experience bins based on cumulative ",
+      "outtake prosecutor caseload. Sample: 1991–2015."
+    )
+  ) +
+  theme_paper
+
+save_fig(p6, "fig6_outtake_gap_labeled.png")
+
+# ── Figure 7: Cohort split — intake (policy vs. learning check) ───────────────
+
+intake_start <- dp |>
+  group_by(`INTAKE-PROSECUTOR`) |>
+  summarise(start_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop")
+
+cohort_split <- dp |>
+  filter(`RACE-LABEL` %in% c("Black", "White")) |>
+  left_join(intake_start, by = "INTAKE-PROSECUTOR") |>
+  mutate(
+    cohort  = ifelse(start_year <= 2000, "Early cohort (started ≤2000)",
+                                         "Late cohort (started >2000)"),
+    exp_bin = ntile(PROSECUTOR_CASE_N, 8)
+  ) |>
+  group_by(cohort, exp_bin, `RACE-LABEL`) |>
+  summarise(n = n(), rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = c(n, rate)) |>
+  mutate(
+    gap   = (rate_White - rate_Black) * 100,
+    se    = sqrt((rate_White * (1 - rate_White) / n_White) +
+                 (rate_Black * (1 - rate_Black) / n_Black)) * 100,
+    ci_lo = gap - 1.96 * se,
+    ci_hi = gap + 1.96 * se
+  )
+
+p7 <- ggplot(cohort_split, aes(exp_bin, gap)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#1f4e79") +
+  geom_line(color = "#1f4e79", linewidth = 1.2) +
+  geom_point(color = "#1f4e79", size = 2.5) +
+  facet_wrap(~cohort) +
+  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  labs(
+    title   = "White–Black Gap by Experience Bin — Early vs. Late Cohorts (Intake)",
+    x       = "Experience Bin (B1 = earliest, B8 = latest)",
+    y       = "Gap (percentage points)",
+    caption = paste0(
+      "Notes: If the gap reflected an office-wide policy change, it should emerge at the same ",
+      "calendar time for all prosecutors. Instead, both cohorts show the gap rising with career ",
+      "experience bins, consistent with individual learning rather than a policy shift."
+    )
+  ) +
+  theme_paper
+
+save_fig(p7, "fig7_cohort_split_intake.png", w = 10, h = 5)
+
+# ── Figure 8: Cohort split — outtake ──────────────────────────────────────────
+
+outtake_start <- dp_out |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  summarise(start_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop")
+
+cohort_split_out <- dp_out |>
+  filter(`RACE-LABEL` %in% c("Black", "White")) |>
+  left_join(outtake_start, by = "OUTTAKE-PROSECUTOR") |>
+  mutate(
+    cohort  = ifelse(start_year <= 2000, "Early cohort (started ≤2000)",
+                                         "Late cohort (started >2000)"),
+    exp_bin = ntile(OUTTAKE_CASE_N, 8)
+  ) |>
+  group_by(cohort, exp_bin, `RACE-LABEL`) |>
+  summarise(n = n(), rate = mean(DEFERRED, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = c(n, rate)) |>
+  mutate(
+    gap   = (rate_White - rate_Black) * 100,
+    se    = sqrt((rate_White * (1 - rate_White) / n_White) +
+                 (rate_Black * (1 - rate_Black) / n_Black)) * 100,
+    ci_lo = gap - 1.96 * se,
+    ci_hi = gap + 1.96 * se
+  )
+
+p8 <- ggplot(cohort_split_out, aes(exp_bin, gap)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#1f4e79") +
+  geom_line(color = "#1f4e79", linewidth = 1.2) +
+  geom_point(color = "#1f4e79", size = 2.5) +
+  facet_wrap(~cohort) +
+  scale_x_continuous(breaks = 1:8, labels = paste0("B", 1:8)) +
+  labs(
+    title   = "White–Black Gap by Experience Bin — Early vs. Late Cohorts (Outtake)",
+    x       = "Experience Bin (B1 = earliest, B8 = latest)",
+    y       = "Gap (percentage points)",
+    caption = paste0(
+      "Notes: Both outtake prosecutor cohorts show the gap rising with career experience bins, ",
+      "consistent with individual learning rather than an office-wide policy shift."
+    )
+  ) +
+  theme_paper
+
+save_fig(p8, "fig8_cohort_split_outtake.png", w = 10, h = 5)
+
 message("\nAll figures saved to ", FIG_DIR)
