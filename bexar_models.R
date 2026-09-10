@@ -29,6 +29,19 @@ df <- dp |>
     LATINO       = as.integer(`RACE-LABEL` == "Latino"),
     RACE         = fct_relevel(`RACE-LABEL`, "White"),
     OFFENSE_TYPE = fct_relevel(`OFFENSE-CLASS`, "F3"),
+    OFFENSE_CATEGORY2 = case_when(
+      str_detect(`OFFENSE-DESC`, "POSS CS|POSS W/I DEL CS|POSS W/INT DEL CS|MAN/DEL CS|DEL CS|POSS MARIJ") ~ "Drug",
+      str_detect(`OFFENSE-DESC`, "BURGLARY|BURG HAB|BURG VEHICLE") ~ "Burglary",
+      str_detect(`OFFENSE-DESC`, "EVADING ARREST") ~ "Evading",
+      str_detect(`OFFENSE-DESC`, "MURDER|HOMICIDE|MANSLAUGHTER") ~ "Homicide",
+      str_detect(`OFFENSE-DESC`, "AGG ASSLT|ASSLT|INJURY TO CHILD|RETALIATION") ~ "Assault",
+      str_detect(`OFFENSE-DESC`, "FORG|CREDIT/DEBIT|FRAUD|THEFT|UNAUTH USE VEH|CRIM MISCH") ~ "Property",
+      str_detect(`OFFENSE-DESC`, "DWI|DRIV WHILE INTOX") ~ "DWI",
+      str_detect(`OFFENSE-DESC`, "SEX|RAPE|INDECENCY|SEXUAL") ~ "Sex",
+      str_detect(`OFFENSE-DESC`, "WEAPON|WPN|CARRY") ~ "Weapon",
+      TRUE ~ "Other"
+    ),
+    OFFENSE_CATEGORY2 = fct_relevel(OFFENSE_CATEGORY2, "Other"),
     SEX          = factor(`SEX-LABEL`),
     APPOINTED    = as.integer(`ATTORNEY-TYPE` == "Appointed"),
     COURT        = factor(COURT),
@@ -96,8 +109,8 @@ m1 <- run_logit(
 m2 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   "M2_OffenseFE")
 
 # ── Spec A: Clean baseline — offense + attorney controls (main table col 1) ───
@@ -105,8 +118,8 @@ m2 <- run_logit(
 specA <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   "SpecA_OffenseOnly")
 
 # ── Spec B: Add case year FE (main table col 2) ───────────────────────────────
@@ -117,8 +130,8 @@ specA <- run_logit(
 specB <- run_feglm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   fe_vars = "CASE_YEAR_FE",
   "SpecB_YearFE")
 
@@ -128,8 +141,8 @@ specB <- run_feglm(
 specC <- run_feglm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   fe_vars = "PROSECUTOR",
   "SpecC_ProsecutorFE")
 
@@ -138,14 +151,14 @@ specC <- run_feglm(
 m6 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY,
-  df |> filter(`ATTORNEY-TYPE` == "Appointed", !is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2,
+  df |> filter(`ATTORNEY-TYPE` == "Appointed", !is.na(OFFENSE_CATEGORY2)),
   "M6_AppointedOnly")
 
 # ── M7: Within offense type (robustness) ──────────────────────────────────────
 
 m7_list <- map(c("F1", "F2", "F3", "FS"), function(ot) {
-  sub <- df |> filter(`OFFENSE-CLASS` == ot, !is.na(OFFENSE_CATEGORY))
+  sub <- df |> filter(`OFFENSE-CLASS` == ot, !is.na(OFFENSE_CATEGORY2))
   tryCatch(
     run_logit(
       DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
@@ -162,12 +175,12 @@ m7 <- bind_rows(m7_list)
 
 # ── M8: Deferred conditional on any plea (robustness) ────────────────────────
 
-df_plea <- df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY))
+df_plea <- df |> filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY2))
 
 m8 <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + CASE_YEAR_FE,
   df_plea,
   "M8_DeferredConditionalOnPlea")
 
@@ -176,7 +189,7 @@ m8 <- run_logit(
 m9 <- run_logit(
   STRAIGHT_CONVICTION ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + CASE_YEAR_FE,
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + CASE_YEAR_FE,
   df_plea |> mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
   "M9_StraightConviction")
 
@@ -185,8 +198,8 @@ m9 <- run_logit(
 specD <- run_feglm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   fe_vars = c("PROSECUTOR", "COURT"),
   "SpecD_ProsecutorCourtFE")
 
@@ -195,15 +208,15 @@ specD <- run_feglm(
 specA_priors <- run_logit(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEFENDANT_CASE_N,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   "SpecA_WithPriors")
 
 specC_priors <- run_feglm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N,
-  df |> filter(!is.na(OFFENSE_CATEGORY)),
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEFENDANT_CASE_N,
+  df |> filter(!is.na(OFFENSE_CATEGORY2)),
   fe_vars = "PROSECUTOR",
   "SpecC_WithPriors")
 
@@ -214,19 +227,19 @@ specC_priors <- run_feglm(
 # caseload sorting rather than differential treatment.
 
 black_share_fit <- feglm(
-  BLACK ~ PROSECUTOR_CASE_N100 + OFFENSE_TYPE + OFFENSE_CATEGORY | PROSECUTOR,
-  data = df |> filter(!is.na(OFFENSE_CATEGORY)),
+  BLACK ~ PROSECUTOR_CASE_N100 + OFFENSE_TYPE + OFFENSE_CATEGORY2 | PROSECUTOR,
+  data = df |> filter(!is.na(OFFENSE_CATEGORY2)),
   family = binomial()
 )
 
 df_comp <- df |>
-  filter(!is.na(OFFENSE_CATEGORY)) |>
+  filter(!is.na(OFFENSE_CATEGORY2)) |>
   mutate(PRED_BLACK_SHARE = fitted(black_share_fit))
 
 specC_comp <- run_feglm(
   DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
     BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
-    OFFENSE_TYPE + OFFENSE_CATEGORY + APPOINTED + DEFENDANT_CASE_N +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEFENDANT_CASE_N +
     PRED_BLACK_SHARE,
   df_comp,
   fe_vars = "PROSECUTOR",
