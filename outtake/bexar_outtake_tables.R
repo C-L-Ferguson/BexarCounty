@@ -96,9 +96,9 @@ table_data <- res |>
   filter(model %in% model_order) |>
   mutate(
     term_clean = case_when(
-      str_detect(term, "BLACK.*OUTTAKE_CASE_N100|OUTTAKE_CASE_N100.*BLACK") ~
+      term == "BLACK:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:BLACK" ~
         "Black $\\times$ Career Case $N$ (per 100)",
-      str_detect(term, "LATINO.*OUTTAKE_CASE_N100|OUTTAKE_CASE_N100.*LATINO") ~
+      term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
         "Latino $\\times$ Career Case $N$ (per 100)",
       term == "BLACK"              ~ "Black",
       term == "LATINO"             ~ "Latino",
@@ -192,9 +192,9 @@ m7_data <- res |>
   mutate(
     offense = str_extract(model, "F[123S]"),
     term_clean = case_when(
-      str_detect(term, "BLACK.*OUTTAKE_CASE_N100|OUTTAKE_CASE_N100.*BLACK") ~
+      term == "BLACK:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:BLACK" ~
         "Black $\\times$ Career Case $N$ (per 100)",
-      str_detect(term, "LATINO.*OUTTAKE_CASE_N100|OUTTAKE_CASE_N100.*LATINO") ~
+      term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
         "Latino $\\times$ Career Case $N$ (per 100)",
       term == "BLACK"  ~ "Black",
       term == "LATINO" ~ "Latino",
@@ -388,9 +388,9 @@ era_data <- res |>
   filter(model %in% c("Era_Hilbig", "Era_Reed")) |>
   mutate(
     term_clean = case_when(
-      str_detect(term, "BLACK.*OUTTAKE_CASE_N100|OUTTAKE_CASE_N100.*BLACK") ~
+      term == "BLACK:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:BLACK" ~
         "Black $\\times$ Career Case $N$ (per 100)",
-      str_detect(term, "LATINO.*OUTTAKE_CASE_N100|OUTTAKE_CASE_N100.*LATINO") ~
+      term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
         "Latino $\\times$ Career Case $N$ (per 100)",
       term == "BLACK"  ~ "Black",
       term == "LATINO" ~ "Latino",
