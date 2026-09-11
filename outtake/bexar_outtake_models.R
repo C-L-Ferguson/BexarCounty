@@ -8,7 +8,7 @@
 #
 # Output: bexar_outtake_model_results.csv
 
-DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)
