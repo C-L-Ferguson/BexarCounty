@@ -246,6 +246,25 @@ specC_comp <- run_feglm(
   fe_vars = "PROSECUTOR",
   "SpecC_CompControl")
 
+# ── Defendant age robustness ──────────────────────────────────────────────────
+# Controls for defendant age at case date. Older defendants receive deferred
+# adjudication at slightly higher rates; age could correlate with prosecutor
+# experience if certain prosecutors handle cases from certain time periods.
+
+df_age <- df |>
+  filter(!is.na(BIRTHDATE), !is.na(OFFENSE_CATEGORY2),
+         `OFFENSE-CLASS` %in% c("F1","F2","F3","FS")) |>
+  mutate(DEF_AGE = as.numeric(difftime(`CASE-DATE`, BIRTHDATE, units = "days")) / 365.25) |>
+  filter(DEF_AGE >= 16, DEF_AGE <= 80)
+
+specC_age <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+    BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEF_AGE,
+  df_age,
+  fe_vars = "PROSECUTOR",
+  "SpecC_DefAge")
+
 # ── Saturated offense fixed effects (robustness) ──────────────────────────────
 # Replaces OFFENSE_CATEGORY2 with OFFENSE-DESC (479 unique charge descriptions)
 # as fixed effects. Tests whether fine-grained charge composition drives the
@@ -279,7 +298,7 @@ specC_saturated_tidy <- if (!is.null(specC_saturated)) {
 
 all_results <- bind_rows(m1, m2, specA, specB, specC, specD, m6, m7, m8, m9,
                          specA_priors, specC_priors, specC_comp,
-                         specC_saturated_tidy) |>
+                         specC_age, specC_saturated_tidy) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
