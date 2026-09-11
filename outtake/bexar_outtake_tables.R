@@ -537,4 +537,128 @@ tex5 <- c(tex5,
 
 write_tex(tex5, file.path(DATA_DIR, "bexar_outtake_table5.tex"))
 
+# ── Table 6: Prosecutor race split ───────────────────────────────────────────
+# Requires: wru package; builds race predictions for outtake prosecutors
+
+library(wru)
+
+outtake_prosecutor_names <- dp_out |>
+  distinct(`OUTTAKE-PROSECUTOR`) |>
+  rename(name = `OUTTAKE-PROSECUTOR`) |>
+  mutate(surname = str_extract(name, "^[^,]+") |> str_trim())
+
+outtake_race_pred <- predict_race(
+  voter.file = outtake_prosecutor_names,
+  surname.only = TRUE
+)
+
+outtake_prosecutor_race <- outtake_race_pred |>
+  mutate(pred_race = case_when(
+    pred.his >= 0.5 ~ "Hispanic",
+    pred.whi >= 0.5 ~ "White",
+    pred.bla >= 0.5 ~ "Black",
+    pred.asi >= 0.5 ~ "Asian",
+    TRUE ~ "Other"
+  )) |>
+  select(`OUTTAKE-PROSECUTOR` = name, pros_pred_race = pred_race)
+
+dp_out_pros <- dp_out |>
+  left_join(outtake_prosecutor_race, by = "OUTTAKE-PROSECUTOR") |>
+  mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`))
+
+df_pros <- dp_out_pros |> filter(!is.na(OFFENSE_CATEGORY2), !is.na(pros_pred_race))
+
+fit_white_pros <- feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data = df_pros |> filter(pros_pred_race == "White"),
+  fixef = "PROSECUTOR", family = binomial(), cluster = "PROSECUTOR")
+
+fit_hisp_pros <- feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data = df_pros |> filter(pros_pred_race == "Hispanic"),
+  fixef = "PROSECUTOR", family = binomial(), cluster = "PROSECUTOR")
+
+pros_race_results <- bind_rows(
+  broom::tidy(fit_white_pros, conf.int = TRUE) |> mutate(model = "WhitePros"),
+  broom::tidy(fit_hisp_pros,  conf.int = TRUE) |> mutate(model = "HispanicPros")
+) |>
+  mutate(
+    term_clean = case_when(
+      term == "BLACK:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:BLACK" ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
+      term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error)
+  ) |>
+  filter(!is.na(term_clean))
+
+focal6 <- c("Black $\\times$ Career Case $N$ (per 100)",
+            "Latino $\\times$ Career Case $N$ (per 100)",
+            "Black", "Latino", "Career Case $N$ (per 100)")
+
+t6_est <- pros_race_results |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal6)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(c("WhitePros", "HispanicPros")), ~ replace_na(., "---")))
+
+t6_se <- pros_race_results |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal6)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(c("WhitePros", "HispanicPros")), ~ replace_na(., "")))
+
+n_white_pros <- nrow(df_pros |> filter(pros_pred_race == "White"))
+n_hisp_pros  <- nrow(df_pros |> filter(pros_pred_race == "Hispanic"))
+
+tex6 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Racial Gap Growth by Prosecutor Race: White vs.\\ Hispanic Prosecutors}",
+  "\\label{tab:pros_race_out}",
+  "\\begin{tabular}{lcc}",
+  "\\hline\\hline",
+  " & White Prosecutors & Hispanic Prosecutors \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(t6_est))) {
+  e <- t6_est[i, ]; s <- t6_se[i, ]
+  tex6 <- c(tex6,
+    paste0(e$term_clean, " & ", e$WhitePros, " & ", e$HispanicPros, " \\\\"),
+    paste0(" & ", s$WhitePros, " & ", s$HispanicPros, " \\\\"),
+    "& & \\\\"
+  )
+}
+
+tex6 <- c(tex6,
+  "\\hline",
+  "Prosecutor FE & Yes & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes \\\\",
+  paste0("$N$ & $", formatC(n_white_pros, big.mark = ","), "$ & $",
+         formatC(n_hisp_pros, big.mark = ","), "$ \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression, estimated separately} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize by predicted prosecutor race (surname-based, \\texttt{wru} package). Outcome:} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize deferred adjudication. SEs clustered by prosecutor. Sample: 1991--2015.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex6, file.path(DATA_DIR, "bexar_outtake_table6.tex"))
+
 message("\nAll outtake tables saved to ", DATA_DIR)
