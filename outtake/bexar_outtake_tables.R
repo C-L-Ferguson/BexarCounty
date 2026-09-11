@@ -118,7 +118,8 @@ t1_est <- table_data |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
   replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---",
-                  SpecC_ProsecutorFE = "---", SpecD_WithPriors = "---"))
+                  SpecC_ProsecutorFE = "---", SpecD_WithPriors = "---")) |>
+  rename_with(~ ifelse(. == "SpecD_WithPriors", "SpecD_WithPriors", .), everything())
 
 t1_se <- table_data |>
   filter(term_clean %in% focal_rows) |>
