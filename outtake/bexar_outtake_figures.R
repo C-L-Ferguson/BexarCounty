@@ -417,4 +417,61 @@ p7 <- ggplot(dot_rows, aes(y = offense)) +
 
 save_fig(p7, "fig7_dotplot_start_vs_peak.png", w = 11, h = 5)
 
+# ── Figure 8: Robustness coefficient plot — interaction terms only ─────────────
+# Requires: bexar_outtake_model_results.csv loaded as `res`
+
+res <- read_csv(file.path(DATA_DIR, "bexar_outtake_model_results.csv"),
+                show_col_types = FALSE)
+
+rob_models <- c("SpecD_WithPriors", "SpecC_DefAge", "SpecC_AppointedOnly")
+rob_labels <- c("Benchmark", "+ Age control", "Appointed only")
+
+coef_plot_data <- res |>
+  filter(model %in% rob_models) |>
+  mutate(
+    term_clean = case_when(
+      term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+        "Black × Experience",
+      term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+        "Latino × Experience",
+      TRUE ~ NA_character_
+    ),
+    ci_lo = estimate - 1.96 * std.error,
+    ci_hi = estimate + 1.96 * std.error,
+    model = factor(model, levels = rob_models, labels = rob_labels)
+  ) |>
+  filter(!is.na(term_clean)) |>
+  mutate(term_clean = factor(term_clean,
+    levels = c("Black × Experience", "Latino × Experience")))
+
+p8 <- ggplot(coef_plot_data, aes(x = estimate, y = model, color = model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_errorbarh(aes(xmin = ci_lo, xmax = ci_hi),
+                 height = 0.2, linewidth = 0.7) +
+  geom_point(size = 3) +
+  facet_wrap(~term_clean, nrow = 1) +
+  scale_x_continuous(limits = c(0, 0.038),
+                     breaks = seq(0, 0.035, 0.01),
+                     labels = function(x) sprintf("%.2f", x)) +
+  scale_color_manual(values = c("#1f4e79", "#c55a11", "#538135"), guide = "none") +
+  labs(
+    title   = "Robustness of Interaction Coefficients Across Specifications",
+    x       = "Log-odds coefficient (95% CI)",
+    y       = NULL,
+    caption = paste0(
+      "Notes: Horizontal bars are 95% confidence intervals, SEs clustered by prosecutor.\n",
+      "Benchmark = Spec D (prosecutor FE + defendant case N). All felony cases 1991–2015."
+    )
+  ) +
+  theme_paper +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    strip.text         = element_text(face = "bold", size = 11),
+    axis.text.y        = element_text(size = 10),
+    plot.caption       = element_text(size = 8, color = "gray40", hjust = 0)
+  )
+
+save_fig(p8, "fig8_robustness_coefplot.png", w = 10, h = 4)
+
 message("\nAll figures saved to ", FIG_DIR)
