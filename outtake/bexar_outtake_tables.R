@@ -582,9 +582,18 @@ fit_hisp_pros <- feglm(
   data = df_pros |> filter(pros_pred_race == "Hispanic"),
   fixef = "PROSECUTOR", family = binomial(), cluster = "PROSECUTOR")
 
+# Black prosecutors: too few prosecutors (N~6) for FE model; use plain logit
+fit_black_pros <- glm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data = df_pros |> filter(pros_pred_race == "Black"),
+  family = binomial())
+
 pros_race_results <- bind_rows(
   broom::tidy(fit_white_pros, conf.int = TRUE) |> mutate(model = "WhitePros"),
-  broom::tidy(fit_hisp_pros,  conf.int = TRUE) |> mutate(model = "HispanicPros")
+  broom::tidy(fit_hisp_pros,  conf.int = TRUE) |> mutate(model = "HispanicPros"),
+  broom::tidy(fit_black_pros, conf.int = TRUE) |> mutate(model = "BlackPros")
 ) |>
   mutate(
     term_clean = case_when(
@@ -611,50 +620,53 @@ t6_est <- pros_race_results |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal6)) |>
   arrange(term_clean) |>
-  mutate(across(any_of(c("WhitePros", "HispanicPros")), ~ replace_na(., "---")))
+  mutate(across(any_of(c("WhitePros", "HispanicPros", "BlackPros")), ~ replace_na(., "---")))
 
 t6_se <- pros_race_results |>
   select(term_clean, model, se_cell) |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal6)) |>
   arrange(term_clean) |>
-  mutate(across(any_of(c("WhitePros", "HispanicPros")), ~ replace_na(., "")))
+  mutate(across(any_of(c("WhitePros", "HispanicPros", "BlackPros")), ~ replace_na(., "")))
 
 n_white_pros <- nrow(df_pros |> filter(pros_pred_race == "White"))
 n_hisp_pros  <- nrow(df_pros |> filter(pros_pred_race == "Hispanic"))
+n_black_pros <- nrow(df_pros |> filter(pros_pred_race == "Black"))
 
 tex6 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
-  "\\caption{Racial Gap Growth by Prosecutor Race: White vs.\\ Hispanic Prosecutors}",
+  "\\caption{Racial Gap Growth by Prosecutor Race}",
   "\\label{tab:pros_race_out}",
-  "\\begin{tabular}{lcc}",
+  "\\begin{tabular}{lccc}",
   "\\hline\\hline",
-  " & White Prosecutors & Hispanic Prosecutors \\\\",
+  " & White Prosecutors & Hispanic Prosecutors & Black Prosecutors$^{\\dagger}$ \\\\",
   "\\hline"
 )
 
 for (i in seq_len(nrow(t6_est))) {
   e <- t6_est[i, ]; s <- t6_se[i, ]
   tex6 <- c(tex6,
-    paste0(e$term_clean, " & ", e$WhitePros, " & ", e$HispanicPros, " \\\\"),
-    paste0(" & ", s$WhitePros, " & ", s$HispanicPros, " \\\\"),
-    "& & \\\\"
+    paste0(e$term_clean, " & ", e$WhitePros, " & ", e$HispanicPros, " & ", e$BlackPros, " \\\\"),
+    paste0(" & ", s$WhitePros, " & ", s$HispanicPros, " & ", s$BlackPros, " \\\\"),
+    "& & & \\\\"
   )
 }
 
 tex6 <- c(tex6,
   "\\hline",
-  "Prosecutor FE & Yes & Yes \\\\",
-  "Offense type \\& category FE & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes \\\\",
+  "Prosecutor FE & Yes & Yes & No \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes \\\\",
   paste0("$N$ & $", formatC(n_white_pros, big.mark = ","), "$ & $",
-         formatC(n_hisp_pros, big.mark = ","), "$ \\\\"),
+         formatC(n_hisp_pros, big.mark = ","), "$ & $",
+         formatC(n_black_pros, big.mark = ","), "$ \\\\"),
   "\\hline\\hline",
-  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression, estimated separately} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize by predicted prosecutor race (surname-based, \\texttt{wru} package). Outcome:} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize deferred adjudication. SEs clustered by prosecutor. Sample: 1991--2015.} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression (cols.\\ 1--2); plain logistic regression (col.\\ 3).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Estimated separately by predicted prosecutor race (surname-based, \\texttt{wru} package). Outcome:} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize deferred adjudication. SEs clustered by prosecutor (cols.\\ 1--2). Sample: 1991--2015.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{\\dagger}$Black prosecutor sample is small ($N\\approx2{,}100$, 6 prosecutors); estimates are suggestive only.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
