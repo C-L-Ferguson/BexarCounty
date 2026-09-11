@@ -301,4 +301,120 @@ p6 <- ggplot(indiv, aes(CAREER_QUINTILE, rate * 100, color = Race, group = Race)
 
 save_fig(p6, "fig6_individual_trajectories.png", w = 12, h = 8)
 
+# ── Figure 7: Dot plot — predicted probability gap, career start vs peak ──────
+# Model-based counterpart to Table 5 (career start vs peak by offense class).
+# Two panels (W-B, W-L), offense class on y-axis, two dots per row connected
+# by a segment showing the change.
+
+library(fixest)
+
+dp_out_pred <- dp_out |>
+  mutate(
+    BLACK     = as.integer(`RACE-LABEL` == "Black"),
+    LATINO    = as.integer(`RACE-LABEL` == "Latino"),
+    APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed"),
+    OFFENSE_TYPE = fct_relevel(`OFFENSE-CLASS`, "F3"),
+    OUTTAKE_CASE_N100 = OUTTAKE_CASE_N / 100,
+    OFFENSE_CATEGORY2 = case_when(
+      str_detect(`OFFENSE-DESC`, "POSS CS|POSS W/I DEL CS|POSS W/INT DEL CS|MAN/DEL CS|DEL CS|POSS MARIJ") ~ "Drug",
+      str_detect(`OFFENSE-DESC`, "BURGLARY|BURG HAB|BURG VEHICLE") ~ "Burglary",
+      str_detect(`OFFENSE-DESC`, "EVADING ARREST") ~ "Evading",
+      str_detect(`OFFENSE-DESC`, "MURDER|HOMICIDE|MANSLAUGHTER") ~ "Homicide",
+      str_detect(`OFFENSE-DESC`, "AGG ASSLT|ASSLT|INJURY TO CHILD|RETALIATION") ~ "Assault",
+      str_detect(`OFFENSE-DESC`, "FORG|CREDIT/DEBIT|FRAUD|THEFT|UNAUTH USE VEH|CRIM MISCH") ~ "Property",
+      str_detect(`OFFENSE-DESC`, "DWI|DRIV WHILE INTOX") ~ "DWI",
+      str_detect(`OFFENSE-DESC`, "SEX|RAPE|INDECENCY|SEXUAL") ~ "Sex",
+      str_detect(`OFFENSE-DESC`, "WEAPON|WPN|CARRY") ~ "Weapon",
+      TRUE ~ "Other"
+    ),
+    OFFENSE_CATEGORY2 = fct_relevel(OFFENSE_CATEGORY2, "Other")
+  ) |>
+  filter(!is.na(OFFENSE_CATEGORY2))
+
+fit_pred7 <- glm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data = dp_out_pred, family = binomial()
+)
+
+max_n100 <- max(dp_out_pred$OUTTAKE_CASE_N100, na.rm = TRUE)
+modal_oc2 <- names(sort(table(dp_out_pred$OFFENSE_CATEGORY2), decreasing = TRUE))[1]
+
+offense_types  <- c("F1", "F2", "F3", "FS")
+offense_labels <- c("F1 (first degree)", "F2 (second degree)",
+                    "F3 (third degree)", "FS (state jail)")
+
+dot_rows <- purrr::map_dfr(seq_along(offense_types), function(j) {
+  oc <- offense_types[j]
+  nd <- function(b, l, n100) {
+    tibble(BLACK = b, LATINO = l, OUTTAKE_CASE_N100 = n100,
+           OFFENSE_TYPE = oc, OFFENSE_CATEGORY2 = modal_oc2, APPOINTED = 1L)
+  }
+  w_start <- predict(fit_pred7, nd(0, 0, 0.01),   type = "response")
+  b_start <- predict(fit_pred7, nd(1, 0, 0.01),   type = "response")
+  l_start <- predict(fit_pred7, nd(0, 1, 0.01),   type = "response")
+  w_peak  <- predict(fit_pred7, nd(0, 0, max_n100), type = "response")
+  b_peak  <- predict(fit_pred7, nd(1, 0, max_n100), type = "response")
+  l_peak  <- predict(fit_pred7, nd(0, 1, max_n100), type = "response")
+
+  bind_rows(
+    tibble(panel = "Panel A: White–Black gap",
+           offense = offense_labels[j],
+           xmin = (w_start - b_start) * 100,
+           xmax = (w_peak  - b_peak)  * 100),
+    tibble(panel = "Panel B: White–Latino gap",
+           offense = offense_labels[j],
+           xmin = (w_start - l_start) * 100,
+           xmax = (w_peak  - l_peak)  * 100)
+  )
+}) |>
+  mutate(
+    offense = factor(offense, levels = rev(offense_labels)),
+    panel   = factor(panel, levels = c("Panel A: White–Black gap",
+                                        "Panel B: White–Latino gap"))
+  )
+
+# Average change labels for each panel
+avg_change <- dot_rows |>
+  group_by(panel) |>
+  summarise(avg = mean(xmax - xmin), .groups = "drop") |>
+  mutate(label = sprintf("avg. change: +%.1f pp", avg),
+         x = 7, offense = factor(offense_labels[1], levels = levels(dot_rows$offense)))
+
+p7 <- ggplot(dot_rows, aes(y = offense)) +
+  geom_segment(aes(x = xmin, xend = xmax, yend = offense),
+               color = "gray50", linewidth = 0.8,
+               arrow = arrow(length = unit(0.18, "cm"), type = "closed")) +
+  geom_point(aes(x = xmin), color = "#2166ac", size = 3.5, shape = 16) +
+  geom_point(aes(x = xmax), color = "#d6604d", size = 3.5, shape = 16) +
+  geom_text(aes(x = xmin, label = sprintf("%.1f", xmin)),
+            hjust = 1.3, size = 3, color = "#2166ac") +
+  geom_text(aes(x = xmax, label = sprintf("%.1f", xmax)),
+            hjust = -0.3, size = 3, color = "#d6604d") +
+  geom_text(data = avg_change, aes(x = x, y = offense, label = label),
+            vjust = -1.8, size = 2.9, color = "gray30", fontface = "italic") +
+  facet_wrap(~panel, nrow = 1) +
+  scale_x_continuous(limits = c(2, 13),
+                     breaks = seq(2, 12, 2),
+                     labels = function(x) paste0(x, " pp")) +
+  labs(
+    title   = "Predicted Racial Gap in Deferred Adjudication: Career Start vs. Peak",
+    x       = "Predicted gap (percentage points)",
+    y       = NULL,
+    caption = str_wrap(paste0(
+      "Notes: Blue dot = career start (case 1); red dot = career peak (maximum observed case N). ",
+      "Predicted from logistic regression at modal offense category and attorney type = appointed counsel. ",
+      "Sample: felony cases, prosecutors first observed 1991 or later, 1991–2015."
+    ), width = 110)
+  ) +
+  theme_paper +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(color = "gray90"),
+    axis.text.y        = element_text(size = 10)
+  )
+
+save_fig(p7, "fig7_dotplot_start_vs_peak.png", w = 11, h = 5)
+
 message("\nAll figures saved to ", FIG_DIR)
