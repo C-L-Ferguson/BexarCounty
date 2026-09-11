@@ -378,6 +378,174 @@ tex3 <- c(tex3,
 
 write_tex(tex3, file.path(DATA_DIR, "bexar_outtake_table3.tex"))
 
+# ── Table 3: Robustness checks ───────────────────────────────────────────────
+# Col 1: benchmark (SpecD_WithPriors), Col 2: defendant age, Col 3: appointed only
+
+rob_models <- c("SpecD_WithPriors", "SpecC_DefAge", "SpecC_AppointedOnly")
+rob_labels <- c("Benchmark", "\\+ Defendant Age", "Appointed Counsel Only")
+focal_rob  <- c("Black $\\times$ Career Case $N$ (per 100)",
+                "Latino $\\times$ Career Case $N$ (per 100)",
+                "Black", "Latino", "Career Case $N$ (per 100)")
+
+rob_data <- res |>
+  filter(model %in% rob_models) |>
+  mutate(
+    term_clean = case_when(
+      term == "BLACK:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:BLACK" ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
+      term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error),
+    model    = factor(model, levels = rob_models)
+  ) |>
+  filter(!is.na(term_clean))
+
+t3_est <- rob_data |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_rob)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(rob_models), ~ replace_na(., "---")))
+
+t3_se <- rob_data |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_rob)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(rob_models), ~ replace_na(., "")))
+
+tex3_rob <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Robustness Checks}",
+  "\\label{tab:robustness_out}",
+  "\\resizebox{\\textwidth}{!}{%",
+  "\\begin{tabular}{lccc}",
+  "\\hline\\hline",
+  paste0(" & (1) & (2) & (3) \\\\"),
+  paste0(" & ", paste(rob_labels, collapse = " & "), " \\\\"),
+  "\\hline"
+)
+
+for (i in seq_len(nrow(t3_est))) {
+  e <- t3_est[i, ]; s <- t3_se[i, ]
+  tex3_rob <- c(tex3_rob,
+    paste0(e$term_clean, " & ", e$SpecD_WithPriors,
+           " & ", e$SpecC_DefAge, " & ", e$SpecC_AppointedOnly, " \\\\"),
+    paste0(" & ", s$SpecD_WithPriors,
+           " & ", s$SpecC_DefAge, " & ", s$SpecC_AppointedOnly, " \\\\"),
+    "& & & \\\\"
+  )
+}
+
+tex3_rob <- c(tex3_rob,
+  "\\hline",
+  "Prosecutor FE & Yes & Yes & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & No \\\\",
+  "Defendant case $N$ & Yes & Yes & Yes \\\\",
+  "Defendant age & No & Yes & No \\\\",
+  "Sample & All & Age 16--80 & Appointed only \\\\",
+  "\\hline\\hline",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2 col.~(4).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}}",
+  "\\end{table}"
+)
+
+write_tex(tex3_rob, file.path(DATA_DIR, "bexar_outtake_table3_robustness.tex"))
+
+# ── Table 5: Conditional on plea — deferred vs straight conviction ────────────
+# M8: deferred | plea sample; M9: straight conviction | plea sample (mirror image)
+
+plea_models <- c("M8_DeferredConditionalOnPlea", "M9_StraightConviction")
+focal_plea  <- c("Black $\\times$ Career Case $N$ (per 100)",
+                 "Latino $\\times$ Career Case $N$ (per 100)",
+                 "Black", "Latino", "Career Case $N$ (per 100)")
+
+plea_data <- res |>
+  filter(model %in% plea_models) |>
+  mutate(
+    term_clean = case_when(
+      term == "BLACK:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:BLACK" ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
+      term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error),
+    model    = factor(model, levels = plea_models)
+  ) |>
+  filter(!is.na(term_clean))
+
+t5_est <- plea_data |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_plea)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(plea_models), ~ replace_na(., "---")))
+
+t5_se <- plea_data |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_plea)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(plea_models), ~ replace_na(., "")))
+
+tex5_plea <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Deferred Adjudication vs.\\ Straight Conviction: Conditional on Plea}",
+  "\\label{tab:plea_out}",
+  "\\begin{tabular}{lcc}",
+  "\\hline\\hline",
+  " & (1) & (2) \\\\",
+  " & Deferred Adjudication & Straight Conviction \\\\",
+  " & (conditional on plea) & (mirror image) \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(t5_est))) {
+  e <- t5_est[i, ]; s <- t5_se[i, ]
+  tex5_plea <- c(tex5_plea,
+    paste0(e$term_clean, " & ", e$M8_DeferredConditionalOnPlea,
+           " & ", e$M9_StraightConviction, " \\\\"),
+    paste0(" & ", s$M8_DeferredConditionalOnPlea,
+           " & ", s$M9_StraightConviction, " \\\\"),
+    "& & \\\\"
+  )
+}
+
+tex5_plea <- c(tex5_plea,
+  "\\hline",
+  "Prosecutor FE & Yes & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes \\\\",
+  "\\hline\\hline",
+  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Sample restricted to cases resolved by guilty plea or deferred adjudication.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize Col.~(1): outcome = deferred adjudication (among plea cases). Col.~(2): outcome = straight} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize conviction plea (not deferred). Both: prosecutor FE logistic regression, SEs clustered by prosecutor.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize Opposite-signed interaction in col.~(2) confirms the deferred adjudication gap reflects} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize charge-reduction discretion, not differential selection into the plea sample.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex5_plea, file.path(DATA_DIR, "bexar_outtake_table5_plea.tex"))
+
 # ── Table 4: DA-era robustness ────────────────────────────────────────────────
 
 focal_era <- c("Black $\\times$ Career Case $N$ (per 100)",

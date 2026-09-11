@@ -199,18 +199,14 @@ specC_age <- run_feglm(
     OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEF_AGE,
   df_age, fe_vars = "PROSECUTOR", "SpecC_DefAge")
 
-# ── Saturated offense FE (robustness) ────────────────────────────────────────
-# Replace 9-category OFFENSE_CATEGORY2 with all unique charge descriptions
+# ── Appointed counsel only (robustness) ──────────────────────────────────────
 
-dp_out_case <- dp_out_case |>
-  mutate(OFFENSE_DESC_FE = factor(`OFFENSE-DESC`))
-
-specC_satFE <- run_feglm(
+specC_appointed <- run_feglm(
   DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
     BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
-    OFFENSE_TYPE + APPOINTED,
-  df |> mutate(OFFENSE_DESC_FE = factor(`OFFENSE-DESC`)),
-  fe_vars = c("PROSECUTOR", "OFFENSE_DESC_FE"), "SpecC_SaturatedOffenseFE")
+    OFFENSE_TYPE + OFFENSE_CATEGORY2,
+  df |> filter(APPOINTED == 1),
+  fe_vars = "PROSECUTOR", "SpecC_AppointedOnly")
 
 # ── M8: Deferred conditional on any plea ─────────────────────────────────────
 
@@ -236,7 +232,7 @@ m9 <- run_feglm(
 
 all_results <- bind_rows(specA, specB, specC, specD, m7,
                          era_hilbig, era_reed, specC_age,
-                         specC_satFE, m8, m9) |>
+                         specC_appointed, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_outtake_model_results.csv"))
