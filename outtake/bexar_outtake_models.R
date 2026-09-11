@@ -19,18 +19,20 @@ dp_raw <- read_parquet(file.path(DATA_DIR, "bexar_prosecutor_panel_1990_2015.par
 
 # ── Build case-level outtake frame ────────────────────────────────────────────
 # One row per case (keep most serious charge when multiple rows per case)
-# Restrict to intake prosecutors first observed 1991+ (left-censoring)
+# Restrict to outtake prosecutors first observed 1991+ (left-censoring fix)
+# Experience variable (OUTTAKE_CASE_N) is outtake-prosecutor-specific, so
+# left-censoring must be applied to the outtake prosecutor, not intake.
 
-fresh_prosecutors <- dp_raw |>
-  group_by(`INTAKE-PROSECUTOR`) |>
+fresh_outtake <- dp_raw |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
   summarise(first_year = min(`CASE-YEAR`, na.rm = TRUE), .groups = "drop") |>
   filter(first_year >= 1991) |>
-  pull(`INTAKE-PROSECUTOR`)
+  pull(`OUTTAKE-PROSECUTOR`)
 
 offense_order <- c("F1", "F2", "F3", "FS")
 
 dp_out_case <- dp_raw |>
-  filter(`INTAKE-PROSECUTOR` %in% fresh_prosecutors,
+  filter(`OUTTAKE-PROSECUTOR` %in% fresh_outtake,
          !is.na(`OUTTAKE-PROSECUTOR`),
          `RACE-LABEL` %in% c("Black", "White", "Latino"),
          `OFFENSE-CLASS` %in% offense_order) |>
