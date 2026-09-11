@@ -246,10 +246,40 @@ specC_comp <- run_feglm(
   fe_vars = "PROSECUTOR",
   "SpecC_CompControl")
 
+# ── Saturated offense fixed effects (robustness) ──────────────────────────────
+# Replaces OFFENSE_CATEGORY2 with OFFENSE-DESC (479 unique charge descriptions)
+# as fixed effects. Tests whether fine-grained charge composition drives the
+# interaction. Coefficient is stable (-4.5% vs SpecC); SE grows 43% due to
+# thin cells (57% of charge descriptions have <10 cases). Power loss, not
+# coefficient instability.
+
+specC_saturated <- tryCatch(
+  feglm(
+    DEFERRED ~ BLACK + LATINO + PROSECUTOR_CASE_N100 +
+      BLACK:PROSECUTOR_CASE_N100 + LATINO:PROSECUTOR_CASE_N100 +
+      APPOINTED | PROSECUTOR + `OFFENSE-DESC`,
+    data = df |> filter(!is.na(`OFFENSE-DESC`), !is.na(OFFENSE_CATEGORY2)),
+    family = binomial(),
+    cluster = ~PROSECUTOR,
+    fixef.tol = 1e-4, fixef.iter = 50, iter = 50
+  ),
+  error = function(e) { message("specC_saturated failed: ", e$message); NULL }
+)
+
+specC_saturated_tidy <- if (!is.null(specC_saturated)) {
+  broom::tidy(specC_saturated) |> mutate(model = "SpecC_Saturated",
+    OR = exp(estimate),
+    conf.low  = estimate - 1.96 * std.error,
+    conf.high = estimate + 1.96 * std.error)
+} else {
+  tibble()
+}
+
 # ── Export ────────────────────────────────────────────────────────────────────
 
 all_results <- bind_rows(m1, m2, specA, specB, specC, specD, m6, m7, m8, m9,
-                         specA_priors, specC_priors, specC_comp) |>
+                         specA_priors, specC_priors, specC_comp,
+                         specC_saturated_tidy) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_model_results.csv"))
