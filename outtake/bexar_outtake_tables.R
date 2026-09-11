@@ -117,9 +117,8 @@ t1_est <- table_data |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "---", SpecB_YearFE = "---",
-                  SpecC_ProsecutorFE = "---", SpecD_WithPriors = "---")) |>
-  rename_with(~ ifelse(. == "SpecD_WithPriors", "SpecD_WithPriors", .), everything())
+  mutate(across(any_of(c("SpecA_OffenseOnly","SpecB_YearFE","SpecC_ProsecutorFE","SpecD_WithPriors")),
+                ~ replace_na(., "---")))
 
 t1_se <- table_data |>
   filter(term_clean %in% focal_rows) |>
@@ -127,8 +126,8 @@ t1_se <- table_data |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
   arrange(term_clean) |>
-  replace_na(list(SpecA_OffenseOnly = "", SpecB_YearFE = "",
-                  SpecC_ProsecutorFE = "", SpecD_WithPriors = ""))
+  mutate(across(any_of(c("SpecA_OffenseOnly","SpecB_YearFE","SpecC_ProsecutorFE","SpecD_WithPriors")),
+                ~ replace_na(., "")))
 
 n_specA <- res |> filter(model == "SpecA_OffenseOnly") |> slice(1) |> pull(model)  # placeholder
 # Pull N from model output printed during bexar_outtake_models.R run
