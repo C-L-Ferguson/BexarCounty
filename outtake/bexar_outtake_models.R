@@ -199,10 +199,44 @@ specC_age <- run_feglm(
     OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEF_AGE,
   df_age, fe_vars = "PROSECUTOR", "SpecC_DefAge")
 
+# ── Saturated offense FE (robustness) ────────────────────────────────────────
+# Replace 9-category OFFENSE_CATEGORY2 with all unique charge descriptions
+
+dp_out_case <- dp_out_case |>
+  mutate(OFFENSE_DESC_FE = factor(`OFFENSE-DESC`))
+
+specC_satFE <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + APPOINTED,
+  df |> mutate(OFFENSE_DESC_FE = factor(`OFFENSE-DESC`)),
+  fe_vars = c("PROSECUTOR", "OFFENSE_DESC_FE"), "SpecC_SaturatedOffenseFE")
+
+# ── M8: Deferred conditional on any plea ─────────────────────────────────────
+
+df_plea <- dp_out_case |>
+  filter(`GUILTY-PLEA` == 1 | DEFERRED == 1, !is.na(OFFENSE_CATEGORY2))
+
+m8 <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df_plea, fe_vars = "PROSECUTOR", "M8_DeferredConditionalOnPlea")
+
+# ── M9: Straight conviction via plea (mirror image) ──────────────────────────
+
+m9 <- run_feglm(
+  STRAIGHT_CONVICTION ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df_plea |> mutate(STRAIGHT_CONVICTION = as.integer(`GUILTY-PLEA` == 1 & DEFERRED == 0)),
+  fe_vars = "PROSECUTOR", "M9_StraightConviction")
+
 # ── Export ────────────────────────────────────────────────────────────────────
 
 all_results <- bind_rows(specA, specB, specC, specD, m7,
-                         era_hilbig, era_reed, specC_age) |>
+                         era_hilbig, era_reed, specC_age,
+                         specC_satFE, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_outtake_model_results.csv"))
