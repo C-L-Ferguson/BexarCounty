@@ -783,8 +783,7 @@ pool_results <- broom::tidy(fit_pool, conf.int = TRUE) |>
 pros_race_results <- bind_rows(
   broom::tidy(fit_white_pros, conf.int = TRUE) |> mutate(model = "WhitePros"),
   broom::tidy(fit_hisp_pros,  conf.int = TRUE) |> mutate(model = "HispanicPros"),
-  broom::tidy(fit_black_pros, conf.int = TRUE) |> mutate(model = "BlackPros"),
-  pool_results
+  broom::tidy(fit_black_pros, conf.int = TRUE) |> mutate(model = "BlackPros")
 ) |>
   mutate(
     term_clean = case_when(
@@ -792,14 +791,6 @@ pros_race_results <- bind_rows(
         "Black $\\times$ Career Case $N$ (per 100)",
       term == "LATINO:OUTTAKE_CASE_N100" | term == "OUTTAKE_CASE_N100:LATINO" ~
         "Latino $\\times$ Career Case $N$ (per 100)",
-      term %in% c("BLACK:OUTTAKE_CASE_N100:HISP_PROS",
-                  "HISP_PROS:BLACK:OUTTAKE_CASE_N100",
-                  "BLACK:HISP_PROS:OUTTAKE_CASE_N100") ~
-        "\\quad $\\times$ Hispanic prosecutor",
-      term %in% c("LATINO:OUTTAKE_CASE_N100:HISP_PROS",
-                  "HISP_PROS:LATINO:OUTTAKE_CASE_N100",
-                  "LATINO:HISP_PROS:OUTTAKE_CASE_N100") ~
-        "\\quad $\\times$ Hispanic prosecutor ",
       term == "BLACK"             ~ "Black",
       term == "LATINO"            ~ "Latino",
       term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
@@ -812,9 +803,7 @@ pros_race_results <- bind_rows(
 
 focal6 <- c(
   "Black $\\times$ Career Case $N$ (per 100)",
-  "\\quad $\\times$ Hispanic prosecutor",
   "Latino $\\times$ Career Case $N$ (per 100)",
-  "\\quad $\\times$ Hispanic prosecutor ",
   "Black", "Latino", "Career Case $N$ (per 100)"
 )
 
@@ -823,7 +812,7 @@ t6_est <- pros_race_results |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal6)) |>
   arrange(term_clean) |>
-  mutate(across(any_of(c("WhitePros", "HispanicPros", "BlackPros", "Pooled_DiffTest")),
+  mutate(across(any_of(c("WhitePros", "HispanicPros", "BlackPros")),
                 ~ replace_na(., "---")))
 
 t6_se <- pros_race_results |>
@@ -831,59 +820,55 @@ t6_se <- pros_race_results |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = focal6)) |>
   arrange(term_clean) |>
-  mutate(across(any_of(c("WhitePros", "HispanicPros", "BlackPros", "Pooled_DiffTest")),
+  mutate(across(any_of(c("WhitePros", "HispanicPros", "BlackPros")),
                 ~ replace_na(., "")))
 
 n_white_pros <- nrow(df_pros |> filter(pros_pred_race == "White"))
 n_hisp_pros  <- nrow(df_pros |> filter(pros_pred_race == "Hispanic"))
 n_black_pros <- nrow(df_pros |> filter(pros_pred_race == "Black"))
-n_pool       <- nrow(df_pool)
 
 tex6 <- c(
   "\\begin{table}[htbp]",
   "\\centering",
-  "\\caption{Racial Gap Growth by Prosecutor Race}",
+  "\\caption{Racial Gap in Deferred Adjudication by Prosecutor Race}",
   "\\label{tab:pros_race_out}",
   "\\resizebox{\\textwidth}{!}{%",
-  "\\begin{tabular}{lcccc}",
+  "\\begin{tabular}{lccc}",
   "\\hline\\hline",
-  " & White Prosecutors & Hispanic Prosecutors & Black Prosecutors$^{\\dagger}$ & Difference test \\\\",
+  " & White Prosecutors & Hispanic Prosecutors & Black Prosecutors$^{\\dagger}$ \\\\",
   "\\hline"
 )
 
 for (i in seq_len(nrow(t6_est))) {
   e <- t6_est[i, ]; s <- t6_se[i, ]
-  wp  <- if ("WhitePros"      %in% names(e)) e$WhitePros      else "---"
-  hp  <- if ("HispanicPros"   %in% names(e)) e$HispanicPros   else "---"
-  bp  <- if ("BlackPros"      %in% names(e)) e$BlackPros      else "---"
-  dp  <- if ("Pooled_DiffTest" %in% names(e)) e$Pooled_DiffTest else "---"
-  wps <- if ("WhitePros"      %in% names(s)) s$WhitePros      else ""
-  hps <- if ("HispanicPros"   %in% names(s)) s$HispanicPros   else ""
-  bps <- if ("BlackPros"      %in% names(s)) s$BlackPros      else ""
-  dps <- if ("Pooled_DiffTest" %in% names(s)) s$Pooled_DiffTest else ""
+  wp  <- if ("WhitePros"    %in% names(e)) e$WhitePros    else "---"
+  hp  <- if ("HispanicPros" %in% names(e)) e$HispanicPros else "---"
+  bp  <- if ("BlackPros"    %in% names(e)) e$BlackPros    else "---"
+  wps <- if ("WhitePros"    %in% names(s)) s$WhitePros    else ""
+  hps <- if ("HispanicPros" %in% names(s)) s$HispanicPros else ""
+  bps <- if ("BlackPros"    %in% names(s)) s$BlackPros    else ""
   tex6 <- c(tex6,
-    paste0(e$term_clean, " & ", wp, " & ", hp, " & ", bp, " & ", dp, " \\\\"),
-    paste0(" & ", wps, " & ", hps, " & ", bps, " & ", dps, " \\\\"),
-    "& & & & \\\\"
+    paste0(e$term_clean, " & ", wp, " & ", hp, " & ", bp, " \\\\"),
+    paste0(" & ", wps, " & ", hps, " & ", bps, " \\\\"),
+    "& & & \\\\"
   )
 }
 
 tex6 <- c(tex6,
   "\\hline",
-  "Prosecutor FE & Yes & Yes & No & Yes \\\\",
-  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & Yes & Yes \\\\",
+  "Prosecutor FE & Yes & Yes & No \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes \\\\",
   paste0("$N$ & $", formatC(n_white_pros, big.mark = ","), "$ & $",
          formatC(n_hisp_pros, big.mark = ","), "$ & $",
-         formatC(n_black_pros, big.mark = ","), "$ & $",
-         formatC(n_pool, big.mark = ","), "$ \\\\"),
+         formatC(n_black_pros, big.mark = ","), "$ \\\\"),
   "\\hline\\hline",
-  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Cols.\\ 1--2: prosecutor FE logistic regression estimated separately by predicted prosecutor race.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize Col.\\ 3: plain logistic regression (too few Black prosecutors for FE). Col.\\ 4: pooled model (White $+$ Hispanic)} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize with triple interactions; difference rows show Hispanic $-$ White learning-curve gap (formal Wald test).} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize Prosecutor race predicted from surname (\\texttt{wru}). SEs clustered by prosecutor (cols.\\ 1--2, 4). 1991--2015.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize $^{\\dagger}$Black prosecutor sample small ($N\\approx2{,}100$, 6 prosecutors); suggestive only.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Each column estimates the benchmark model (Table~2, col.~4) on a subsample defined by predicted prosecutor race.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Cols.\\ 1--2: prosecutor FE logistic regression. Col.\\ 3: plain logistic regression (too few Black prosecutors for FE).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize The interaction is positive and significant for both White and Hispanic prosecutors, inconsistent with a White-animus account.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Prosecutor race predicted from surname (\\texttt{wru}). SEs clustered by prosecutor (cols.\\ 1--2). 1991--2015.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{\\dagger}$Black prosecutor sample small ($N\\approx2{,}500$, 6 prosecutors); suggestive only.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
 )
