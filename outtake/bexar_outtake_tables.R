@@ -185,6 +185,64 @@ tex1 <- c(tex1,
 
 write_tex(tex1, file.path(DATA_DIR, "bexar_outtake_table1.tex"))
 
+# ── Table 2 (main): Two-column version — cols (3) and (4) only ───────────────
+
+main2_models <- c("SpecC_ProsecutorFE", "SpecD_WithPriors")
+
+t2_est <- table_data |>
+  filter(term_clean %in% focal_rows, model %in% main2_models) |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(main2_models), ~ replace_na(., "---")))
+
+t2_se <- table_data |>
+  filter(term_clean %in% focal_rows, model %in% main2_models) |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = focal_rows)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(main2_models), ~ replace_na(., "")))
+
+tex2_main <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Deferred Adjudication and Prosecutor Experience}",
+  "\\label{tab:main2_out}",
+  "\\begin{tabular}{lcc}",
+  "\\hline\\hline",
+  " & (1) & (2) \\\\",
+  " & Prosecutor FE & Prosecutor FE + Priors \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(t2_est))) {
+  e <- t2_est[i, ]; s <- t2_se[i, ]
+  tex2_main <- c(tex2_main,
+    paste0(e$term_clean, " & ", e$SpecC_ProsecutorFE, " & ", e$SpecD_WithPriors, " \\\\"),
+    paste0(" & ", s$SpecC_ProsecutorFE, " & ", s$SpecD_WithPriors, " \\\\"),
+    "& & \\\\"
+  )
+}
+
+tex2_main <- c(tex2_main,
+  "\\hline",
+  "Prosecutor FE & Yes & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes \\\\",
+  "Defendant case $N$ & No & Yes \\\\",
+  "\\hline\\hline",
+  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize SEs clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize Col.~(2) adds defendant cumulative case count as proxy for prior record.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex2_main, file.path(DATA_DIR, "bexar_outtake_table2_main.tex"))
+
 # ── Table 2: Within-offense-type ──────────────────────────────────────────────
 
 m7_data <- res |>
