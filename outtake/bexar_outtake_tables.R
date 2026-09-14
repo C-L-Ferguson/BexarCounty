@@ -933,4 +933,200 @@ tex6 <- c(tex6,
 
 write_tex(tex6, file.path(DATA_DIR, "bexar_outtake_table6.tex"))
 
+# ── Table 0: Summary statistics ───────────────────────────────────────────────
+# Column breakdown: Black defendants, Latino defendants, White defendants, All
+
+# Hilbig-Reed transition: Hilbig DA through 1998, Reed from 1999
+# A prosecutor "spans" the transition if they appear in both eras
+
+pros_era <- dp_out |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  summarise(
+    has_hilbig = any(`CASE-YEAR` <= 1998),
+    has_reed   = any(`CASE-YEAR` >= 1999),
+    career_start = min(`CASE-YEAR`, na.rm = TRUE),
+    career_end   = max(`CASE-YEAR`, na.rm = TRUE),
+    career_span  = career_end - career_start,
+    n_cases      = n(),
+    .groups = "drop"
+  ) |>
+  mutate(spans_transition = has_hilbig & has_reed)
+
+pros_summary <- pros_era |>
+  summarise(
+    n_pros          = n(),
+    mean_cases      = mean(n_cases),
+    median_cases    = median(n_cases),
+    mean_span       = mean(career_span),
+    pct_spanning    = mean(spans_transition) * 100
+  )
+
+# Case-level stats by defendant race
+races_ordered <- c("Black", "Latino", "White")
+
+t0_stats <- function(df) {
+  tibble(
+    pct_deferred   = mean(df$DEFERRED,   na.rm = TRUE) * 100,
+    pct_dismissed  = mean(df[["DISMISSED"]] %in% 1L | df[["DISMISSAL"]] %in% 1L |
+                          str_detect(tolower(df[["DISPOSITION"]] %||% ""), "dismiss"),
+                          na.rm = TRUE) * 100,
+    pct_prior      = mean(df[["HAS-PRIOR-CASE"]] %in% TRUE | df[["PRIOR-CASE"]] %in% 1L |
+                          df[["PRIOR_CASE"]] %in% 1L, na.rm = TRUE) * 100,
+    pct_f1         = mean(df[["OFFENSE-CLASS"]] == "F1", na.rm = TRUE) * 100,
+    pct_f2         = mean(df[["OFFENSE-CLASS"]] == "F2", na.rm = TRUE) * 100,
+    pct_f3         = mean(df[["OFFENSE-CLASS"]] == "F3", na.rm = TRUE) * 100,
+    pct_fs         = mean(df[["OFFENSE-CLASS"]] == "FS", na.rm = TRUE) * 100,
+    pct_appointed  = mean(df$APPOINTED, na.rm = TRUE) * 100,
+    mean_career_n  = mean(df$OUTTAKE_CASE_N, na.rm = TRUE)
+  )
+}
+
+# First check what dismissal / prior-case variable names exist
+dp_out_names <- names(dp_out)
+message("dp_out columns: ", paste(dp_out_names, collapse = ", "))
+
+# Build summary using available columns; handle gracefully
+t0_by_race <- map_dfr(races_ordered, function(r) {
+  sub <- dp_out |> filter(`RACE-LABEL` == r)
+  tibble(
+    race           = r,
+    n_cases        = nrow(sub),
+    pct_deferred   = mean(sub$DEFERRED, na.rm = TRUE) * 100,
+    pct_f1         = mean(sub$`OFFENSE-CLASS` == "F1", na.rm = TRUE) * 100,
+    pct_f2         = mean(sub$`OFFENSE-CLASS` == "F2", na.rm = TRUE) * 100,
+    pct_f3         = mean(sub$`OFFENSE-CLASS` == "F3", na.rm = TRUE) * 100,
+    pct_fs         = mean(sub$`OFFENSE-CLASS` == "FS", na.rm = TRUE) * 100,
+    pct_appointed  = mean(sub$APPOINTED, na.rm = TRUE) * 100,
+    mean_career_n  = mean(sub$OUTTAKE_CASE_N, na.rm = TRUE)
+  )
+})
+
+t0_all <- dp_out |>
+  summarise(
+    race           = "All",
+    n_cases        = n(),
+    pct_deferred   = mean(DEFERRED, na.rm = TRUE) * 100,
+    pct_f1         = mean(`OFFENSE-CLASS` == "F1", na.rm = TRUE) * 100,
+    pct_f2         = mean(`OFFENSE-CLASS` == "F2", na.rm = TRUE) * 100,
+    pct_f3         = mean(`OFFENSE-CLASS` == "F3", na.rm = TRUE) * 100,
+    pct_fs         = mean(`OFFENSE-CLASS` == "FS", na.rm = TRUE) * 100,
+    pct_appointed  = mean(APPOINTED, na.rm = TRUE) * 100,
+    mean_career_n  = mean(OUTTAKE_CASE_N, na.rm = TRUE)
+  )
+
+t0_full <- bind_rows(t0_by_race, t0_all)
+
+# Check if dismissed and prior variables exist
+has_dismissed <- "DISMISSED" %in% names(dp_out) || "DISMISSAL" %in% names(dp_out)
+has_prior     <- any(c("PRIOR-CASE","PRIOR_CASE","HAS-PRIOR-CASE") %in% names(dp_out))
+
+if (has_dismissed) {
+  dism_var <- if ("DISMISSED" %in% names(dp_out)) "DISMISSED" else "DISMISSAL"
+  t0_full <- t0_full |> left_join(
+    bind_rows(
+      map_dfr(races_ordered, function(r) {
+        sub <- dp_out |> filter(`RACE-LABEL` == r)
+        tibble(race = r, pct_dismissed = mean(sub[[dism_var]], na.rm = TRUE) * 100)
+      }),
+      dp_out |> summarise(race = "All", pct_dismissed = mean(.data[[dism_var]], na.rm = TRUE) * 100)
+    ), by = "race")
+} else {
+  t0_full$pct_dismissed <- NA_real_
+}
+
+if (has_prior) {
+  prior_var <- intersect(c("PRIOR-CASE","PRIOR_CASE","HAS-PRIOR-CASE"), names(dp_out))[1]
+  t0_full <- t0_full |> left_join(
+    bind_rows(
+      map_dfr(races_ordered, function(r) {
+        sub <- dp_out |> filter(`RACE-LABEL` == r)
+        tibble(race = r, pct_prior = mean(sub[[prior_var]], na.rm = TRUE) * 100)
+      }),
+      dp_out |> summarise(race = "All", pct_prior = mean(.data[[prior_var]], na.rm = TRUE) * 100)
+    ), by = "race")
+} else {
+  t0_full$pct_prior <- NA_real_
+}
+
+# Format helpers
+f1d <- function(x) if (is.na(x)) "---" else sprintf("%.1f", x)
+f0  <- function(x) if (is.na(x)) "---" else formatC(round(x), format = "d", big.mark = ",")
+
+# Column order: Black, Latino, White, All
+col_order <- c("Black", "Latino", "White", "All")
+t0 <- t0_full |> mutate(race = factor(race, levels = col_order)) |> arrange(race)
+
+row_val <- function(var) {
+  sapply(col_order, function(r) {
+    v <- t0[t0$race == r, var, drop = TRUE]
+    f1d(v)
+  })
+}
+
+row_line <- function(label, cells) {
+  paste0(label, " & ", paste(cells, collapse = " & "), " \\\\")
+}
+
+n_row_cells <- sapply(col_order, function(r) f0(t0[t0$race == r, "n_cases", drop = TRUE]))
+
+tex0 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Summary Statistics: Outtake Prosecutor Sample, 1991--2015}",
+  "\\label{tab:sumstats_out}",
+  "\\begin{tabular}{lcccc}",
+  "\\hline\\hline",
+  " & Black & Latino & White & All \\\\",
+  "\\hline",
+  "\\multicolumn{5}{l}{\\textit{Case Outcomes}} \\\\",
+  row_line("\\quad \\% Deferred adjudication", row_val("pct_deferred"))
+)
+
+if (!all(is.na(t0_full$pct_dismissed))) {
+  tex0 <- c(tex0, row_line("\\quad \\% Dismissed", row_val("pct_dismissed")))
+}
+
+tex0 <- c(tex0,
+  "\\multicolumn{5}{l}{\\textit{Criminal History}} \\\\"
+)
+
+if (!all(is.na(t0_full$pct_prior))) {
+  tex0 <- c(tex0, row_line("\\quad \\% With prior case", row_val("pct_prior")))
+} else {
+  tex0 <- c(tex0, "\\quad \\% With prior case & --- & --- & --- & --- \\\\")
+}
+
+tex0 <- c(tex0,
+  "\\multicolumn{5}{l}{\\textit{Crime Type (\\% of cases)}} \\\\",
+  row_line("\\quad F1 (first-degree felony)", row_val("pct_f1")),
+  row_line("\\quad F2 (second-degree felony)", row_val("pct_f2")),
+  row_line("\\quad F3 (third-degree felony)",  row_val("pct_f3")),
+  row_line("\\quad FS (state-jail felony)",     row_val("pct_fs")),
+  "\\multicolumn{5}{l}{\\textit{Representation}} \\\\",
+  row_line("\\quad \\% Appointed counsel", row_val("pct_appointed")),
+  row_line("\\quad Mean prosecutor career case $N$", row_val("mean_career_n")),
+  "\\multicolumn{5}{l}{\\textit{Prosecutor Characteristics (pooled)}} \\\\",
+  paste0("\\quad Number of prosecutors & \\multicolumn{4}{c}{",
+         formatC(pros_summary$n_pros, format = "d", big.mark = ","), "} \\\\"),
+  paste0("\\quad Mean cases per prosecutor & \\multicolumn{4}{c}{",
+         sprintf("%.1f", pros_summary$mean_cases), "} \\\\"),
+  paste0("\\quad Median cases per prosecutor & \\multicolumn{4}{c}{",
+         sprintf("%.0f", pros_summary$median_cases), "} \\\\"),
+  paste0("\\quad Mean career span (years) & \\multicolumn{4}{c}{",
+         sprintf("%.1f", pros_summary$mean_span), "} \\\\"),
+  paste0("\\quad \\% Spanning Hilbig--Reed transition & \\multicolumn{4}{c}{",
+         sprintf("%.1f", pros_summary$pct_spanning), "} \\\\"),
+  "\\hline",
+  paste0("$N$ & ", paste(n_row_cells, collapse = " & "), " \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Sample restricted to outtake prosecutors whose first observed case is 1991 or later} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize (left-censoring correction). One observation per case (most serious charge). Defendant race} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize from jail booking records (Black, Latino, White). Prior case = defendant SID appears more} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize than once in the sample. Hilbig--Reed transition: Hilbig DA through 1998, Reed from 1999.} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex0, file.path(DATA_DIR, "bexar_outtake_table0_sumstats.tex"))
+
 message("\nAll outtake tables saved to ", DATA_DIR)
