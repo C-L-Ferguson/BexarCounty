@@ -440,7 +440,7 @@ write_tex(tex3, file.path(DATA_DIR, "bexar_outtake_table3.tex"))
 # Col 1: benchmark (SpecD_WithPriors), Col 2: defendant age, Col 3: appointed only
 
 rob_models <- c("SpecD_WithPriors", "SpecC_DefAge", "SpecC_AppointedOnly")
-rob_labels <- c("Benchmark", "\\+ Defendant Age", "Appointed Counsel Only")
+rob_labels <- c("Benchmark", "$+$ Defendant Age", "Appointed Counsel Only")
 focal_rob  <- c("Black $\\times$ Career Case $N$ (per 100)",
                 "Latino $\\times$ Career Case $N$ (per 100)",
                 "Black", "Latino", "Career Case $N$ (per 100)")
