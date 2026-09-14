@@ -680,16 +680,16 @@ offense_classes <- c("F1", "F2", "F3", "FS")
 offense_labels5 <- c("F1 (first degree)", "F2 (second degree)",
                      "F3 (third degree)", "FS (state jail felony)")
 max_case_n5 <- max(df_pred$PROSECUTOR_CASE_N100, na.rm = TRUE)
-modal_oc5   <- names(sort(table(df_pred$OFFENSE_CATEGORY), decreasing = TRUE))[1]
+modal_oc5   <- names(sort(table(df_pred$OFFENSE_CATEGORY2), decreasing = TRUE))[1]
 mean_appt5  <- 1L  # modal value (appointed counsel is more common: 89,716 vs 68,743)
 
 t5_rows <- list()
 for (j in seq_along(offense_classes)) {
   oc <- offense_classes[j]
   nd_start <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N100=0.01,
-                     OFFENSE_TYPE=oc, OFFENSE_CATEGORY=modal_oc5, APPOINTED=mean_appt5)
+                     OFFENSE_TYPE=oc, OFFENSE_CATEGORY2=modal_oc5, APPOINTED=mean_appt5)
   nd_peak  <- tibble(BLACK=c(0,1), LATINO=c(0,0), PROSECUTOR_CASE_N100=max_case_n5,
-                     OFFENSE_TYPE=oc, OFFENSE_CATEGORY=modal_oc5, APPOINTED=mean_appt5)
+                     OFFENSE_TYPE=oc, OFFENSE_CATEGORY2=modal_oc5, APPOINTED=mean_appt5)
   nd_start$pred <- predict(fit_pred, newdata=nd_start, type="response")
   nd_peak$pred  <- predict(fit_pred, newdata=nd_peak,  type="response")
   t5_rows[[j]] <- list(
