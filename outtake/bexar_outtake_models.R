@@ -76,7 +76,18 @@ dp_out_case <- dp_out_case |>
   mutate(OUTTAKE_CASE_N100 = OUTTAKE_CASE_N / 100)
 
 # Defendant career sequence (proxy for prior record)
-def_seq <- dp_raw |>
+# Use full raw CSV history (all available years) so cumulative case count is
+# not left-censored at 1990. A defendant with cases before 1990 will have
+# a higher DEFENDANT_CASE_N than if we only counted from dp_raw.
+raw_files <- list.files(DATA_DIR, pattern = "^DC_cjjorad_", full.names = TRUE)
+message("Building defendant case sequence from ", length(raw_files), " raw files...")
+
+def_seq <- map_dfr(raw_files, function(f) {
+  read_csv(f, col_types = cols(.default = "c"), show_col_types = FALSE) |>
+    select(any_of(c("SID", "CASE-CAUSE-NBR", "CASE-DATE")))
+}) |>
+  filter(!is.na(SID), SID != "", !is.na(`CASE-CAUSE-NBR`)) |>
+  mutate(`CASE-DATE` = as.Date(`CASE-DATE`)) |>
   arrange(SID, `CASE-DATE`) |>
   group_by(SID) |>
   mutate(DEFENDANT_CASE_N = row_number()) |>
