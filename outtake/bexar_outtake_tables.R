@@ -1049,13 +1049,18 @@ if (has_prior) {
       dp_out |> summarise(race = "All", pct_prior = mean(.data[[prior_var]], na.rm = TRUE) * 100)
     ), by = "race")
 } else {
-  # Construct from SID: defendant has a prior case if their SID appears more than once in dp_raw
-  sid_counts <- dp_raw |>
-    filter(!is.na(SID)) |>
-    count(SID, name = "sid_n")
+  # Construct from SID using full raw CSV history (all years) so left-censoring
+  # at 1990 does not artificially suppress prior-case rates.
+  raw_files <- list.files(DATA_DIR, pattern = "^DC_cjjorad_", full.names = TRUE)
+  sid_counts_full <- map_dfr(raw_files, function(f) {
+    read_csv(f, col_types = cols(.default = "c"), show_col_types = FALSE) |>
+      select(any_of("SID"))
+  }) |>
+    filter(!is.na(SID), SID != "") |>
+    count(SID, name = "sid_n_full")
   dp_out_prior <- dp_out |>
-    left_join(sid_counts, by = "SID") |>
-    mutate(HAS_PRIOR = !is.na(sid_n) & sid_n > 1)
+    left_join(sid_counts_full, by = "SID") |>
+    mutate(HAS_PRIOR = !is.na(sid_n_full) & sid_n_full > 1)
   t0_full <- t0_full |> left_join(
     bind_rows(
       map_dfr(races_ordered, function(r) {
@@ -1142,7 +1147,8 @@ tex0 <- c(tex0,
   "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Sample restricted to prosecutors whose first observed case is 1991 or later} \\\\",
   "\\multicolumn{5}{l}{\\footnotesize (left-censoring correction). One observation per case (most serious charge). Defendant race} \\\\",
   "\\multicolumn{5}{l}{\\footnotesize from jail booking records (Black, Latino, White). Prior case = defendant SID appears more} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize than once in the sample. Hilbig--Reed transition: Hilbig DA through 1998, Reed from 1999.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize than once across the full Bexar County criminal record (all available years). Hilbig--Reed} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize transition: Hilbig DA through 1998, Reed from 1999.} \\\\",
   paste0("\\multicolumn{5}{l}{\\footnotesize $^{\\ddagger}$Median among prosecutors with $\\geq$50 cases ($N = ",
          pros_summary$n_50plus, "$); raw median across all prosecutors is 22.} \\\\"),
   "\\end{tabular}",
