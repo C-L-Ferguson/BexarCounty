@@ -994,6 +994,7 @@ t0_by_race <- map_dfr(races_ordered, function(r) {
     race           = r,
     n_cases        = nrow(sub),
     pct_deferred   = mean(sub$DEFERRED, na.rm = TRUE) * 100,
+    pct_guilty_plea = mean(sub$`GUILTY-PLEA` == 1 & sub$DEFERRED == 0, na.rm = TRUE) * 100,
     pct_f1         = mean(sub$`OFFENSE-CLASS` == "F1", na.rm = TRUE) * 100,
     pct_f2         = mean(sub$`OFFENSE-CLASS` == "F2", na.rm = TRUE) * 100,
     pct_f3         = mean(sub$`OFFENSE-CLASS` == "F3", na.rm = TRUE) * 100,
@@ -1008,6 +1009,7 @@ t0_all <- dp_out |>
     race           = "All",
     n_cases        = n(),
     pct_deferred   = mean(DEFERRED, na.rm = TRUE) * 100,
+    pct_guilty_plea = mean(`GUILTY-PLEA` == 1 & DEFERRED == 0, na.rm = TRUE) * 100,
     pct_f1         = mean(`OFFENSE-CLASS` == "F1", na.rm = TRUE) * 100,
     pct_f2         = mean(`OFFENSE-CLASS` == "F2", na.rm = TRUE) * 100,
     pct_f3         = mean(`OFFENSE-CLASS` == "F3", na.rm = TRUE) * 100,
@@ -1047,7 +1049,21 @@ if (has_prior) {
       dp_out |> summarise(race = "All", pct_prior = mean(.data[[prior_var]], na.rm = TRUE) * 100)
     ), by = "race")
 } else {
-  t0_full$pct_prior <- NA_real_
+  # Construct from SID: defendant has a prior case if their SID appears more than once in dp_out
+  sid_counts <- dp_out |>
+    filter(!is.na(SID)) |>
+    count(SID, name = "sid_n")
+  dp_out_prior <- dp_out |>
+    left_join(sid_counts, by = "SID") |>
+    mutate(HAS_PRIOR = !is.na(sid_n) & sid_n > 1)
+  t0_full <- t0_full |> left_join(
+    bind_rows(
+      map_dfr(races_ordered, function(r) {
+        sub <- dp_out_prior |> filter(`RACE-LABEL` == r)
+        tibble(race = r, pct_prior = mean(sub$HAS_PRIOR, na.rm = TRUE) * 100)
+      }),
+      dp_out_prior |> summarise(race = "All", pct_prior = mean(HAS_PRIOR, na.rm = TRUE) * 100)
+    ), by = "race")
 }
 
 # Format helpers
@@ -1087,6 +1103,7 @@ tex0 <- c(
 if (!all(is.na(t0_full$pct_dismissed))) {
   tex0 <- c(tex0, row_line("\\quad \\% Dismissed", row_val("pct_dismissed")))
 }
+tex0 <- c(tex0, row_line("\\quad \\% Guilty plea (no deferred)", row_val("pct_guilty_plea")))
 
 tex0 <- c(tex0,
   "\\multicolumn{5}{l}{\\textit{Criminal History}} \\\\"
