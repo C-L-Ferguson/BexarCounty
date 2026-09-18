@@ -939,7 +939,8 @@ write_tex(tex6, file.path(DATA_DIR, "bexar_outtake_table6.tex"))
 # Hilbig-Reed transition: Hilbig DA through 1998, Reed from 1999
 # A prosecutor "spans" the transition if they appear in both eras
 
-pros_era <- dp_out |>
+pros_era <- dp_raw |>
+  filter(`OUTTAKE-PROSECUTOR` %in% fresh_outtake, !is.na(`OUTTAKE-PROSECUTOR`)) |>
   group_by(`OUTTAKE-PROSECUTOR`) |>
   summarise(
     has_hilbig = any(`CASE-YEAR` <= 1998),
