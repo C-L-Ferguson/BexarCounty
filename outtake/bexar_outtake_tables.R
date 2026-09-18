@@ -1049,8 +1049,8 @@ if (has_prior) {
       dp_out |> summarise(race = "All", pct_prior = mean(.data[[prior_var]], na.rm = TRUE) * 100)
     ), by = "race")
 } else {
-  # Construct from SID: defendant has a prior case if their SID appears more than once in dp_out
-  sid_counts <- dp_out |>
+  # Construct from SID: defendant has a prior case if their SID appears more than once in dp_raw
+  sid_counts <- dp_raw |>
     filter(!is.na(SID)) |>
     count(SID, name = "sid_n")
   dp_out_prior <- dp_out |>
