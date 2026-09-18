@@ -956,7 +956,8 @@ pros_summary <- pros_era |>
   summarise(
     n_pros          = n(),
     mean_cases      = mean(n_cases),
-    median_cases    = median(n_cases),
+    median_cases    = median(n_cases[n_cases >= 50]),
+    n_50plus        = sum(n_cases >= 50),
     mean_span       = mean(career_span),
     pct_spanning    = mean(spans_transition) * 100
   )
@@ -1113,7 +1114,7 @@ tex0 <- c(tex0,
          formatC(pros_summary$n_pros, format = "d", big.mark = ","), "} \\\\"),
   paste0("\\quad Mean cases per prosecutor & \\multicolumn{4}{c}{",
          sprintf("%.1f", pros_summary$mean_cases), "} \\\\"),
-  paste0("\\quad Median cases per prosecutor & \\multicolumn{4}{c}{",
+  paste0("\\quad Median cases per prosecutor$^{\\ddagger}$ & \\multicolumn{4}{c}{",
          sprintf("%.0f", pros_summary$median_cases), "} \\\\"),
   paste0("\\quad Mean career span (years) & \\multicolumn{4}{c}{",
          sprintf("%.1f", pros_summary$mean_span), "} \\\\"),
@@ -1124,6 +1125,8 @@ tex0 <- c(tex0,
   "\\multicolumn{5}{l}{\\footnotesize (left-censoring correction). One observation per case (most serious charge). Defendant race} \\\\",
   "\\multicolumn{5}{l}{\\footnotesize from jail booking records (Black, Latino, White). Prior case = defendant SID appears more} \\\\",
   "\\multicolumn{5}{l}{\\footnotesize than once in the sample. Hilbig--Reed transition: Hilbig DA through 1998, Reed from 1999.} \\\\",
+  paste0("\\multicolumn{5}{l}{\\footnotesize $^{\\ddagger}$Median among prosecutors with $\\geq$50 cases ($N = ",
+         pros_summary$n_50plus, "$); raw median across all prosecutors is 22.} \\\\"),
   "\\end{tabular}",
   "\\end{table}"
 )
