@@ -65,7 +65,6 @@ dp_out <- dp_raw |>
     LATINO   = as.integer(`RACE-LABEL` == "Latino"),
     APPOINTED = as.integer(`ATTORNEY-TYPE` == "Appointed"),
     OFFENSE_TYPE = fct_relevel(`OFFENSE-CLASS`, "F3"),
-    OUTTAKE_CASE_N100 = OUTTAKE_CASE_N / 100,
     OFFENSE_CATEGORY2 = case_when(
       str_detect(`OFFENSE-DESC`, "POSS CS|POSS W/I DEL CS|POSS W/INT DEL CS|MAN/DEL CS|DEL CS|POSS MARIJ") ~ "Drug",
       str_detect(`OFFENSE-DESC`, "BURGLARY|BURG HAB|BURG VEHICLE") ~ "Burglary",
