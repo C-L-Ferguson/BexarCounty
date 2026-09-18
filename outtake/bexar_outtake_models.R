@@ -210,6 +210,23 @@ specC_appointed <- run_feglm(
   df |> filter(APPOINTED == 1),
   fe_vars = "PROSECUTOR", "SpecC_AppointedOnly")
 
+# ── Completed careers only (right-censoring robustness) ──────────────────────
+# Restrict to prosecutors whose last observed case is before 2015, i.e. those
+# who left the office before the sample ends and have fully observed careers.
+
+completed_pros <- dp_out_case |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  summarise(last_year = max(`CASE-YEAR`, na.rm = TRUE), .groups = "drop") |>
+  filter(last_year < 2015) |>
+  pull(`OUTTAKE-PROSECUTOR`)
+
+specD_completed <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEFENDANT_CASE_N,
+  df |> filter(`OUTTAKE-PROSECUTOR` %in% completed_pros),
+  fe_vars = "PROSECUTOR", "SpecD_CompletedCareers")
+
 # ── M8: Deferred conditional on any plea ─────────────────────────────────────
 
 df_plea <- dp_out_case |>
@@ -234,7 +251,7 @@ m9 <- run_feglm(
 
 all_results <- bind_rows(specA, specB, specC, specD, m7,
                          era_hilbig, era_reed, specC_age,
-                         specC_appointed, m8, m9) |>
+                         specC_appointed, specD_completed, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_outtake_model_results.csv"))
