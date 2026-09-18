@@ -1051,16 +1051,22 @@ if (has_prior) {
 } else {
   # Construct from SID using full raw CSV history (all years) so left-censoring
   # at 1990 does not artificially suppress prior-case rates.
+  # HAS_PRIOR = defendant had at least one case before this one (DEFENDANT_CASE_N > 1).
   raw_files <- list.files(DATA_DIR, pattern = "^DC_cjjorad_", full.names = TRUE)
-  sid_counts_full <- map_dfr(raw_files, function(f) {
+  def_seq_tbl <- map_dfr(raw_files, function(f) {
     read_csv(f, col_types = cols(.default = "c"), show_col_types = FALSE) |>
-      select(any_of("SID"))
+      select(any_of(c("SID", "CASE-CAUSE-NBR", "CASE-DATE")))
   }) |>
-    filter(!is.na(SID), SID != "") |>
-    count(SID, name = "sid_n_full")
+    filter(!is.na(SID), SID != "", !is.na(`CASE-CAUSE-NBR`)) |>
+    mutate(`CASE-DATE` = as.Date(`CASE-DATE`)) |>
+    arrange(SID, `CASE-DATE`) |>
+    group_by(SID) |>
+    mutate(DEFENDANT_CASE_N = row_number()) |>
+    ungroup() |>
+    select(`CASE-CAUSE-NBR`, DEFENDANT_CASE_N)
   dp_out_prior <- dp_out |>
-    left_join(sid_counts_full, by = "SID") |>
-    mutate(HAS_PRIOR = !is.na(sid_n_full) & sid_n_full > 1)
+    left_join(def_seq_tbl, by = "CASE-CAUSE-NBR") |>
+    mutate(HAS_PRIOR = !is.na(DEFENDANT_CASE_N) & DEFENDANT_CASE_N > 1)
   t0_full <- t0_full |> left_join(
     bind_rows(
       map_dfr(races_ordered, function(r) {
