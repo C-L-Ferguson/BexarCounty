@@ -67,12 +67,25 @@ dp_out_case <- dp_out_case |>
     PROSECUTOR   = factor(`OUTTAKE-PROSECUTOR`)
   )
 
-# Outtake experience: running case count per outtake prosecutor ordered by CASE-DATE
-dp_out_case <- dp_out_case |>
+# Outtake experience: running case count per outtake prosecutor from full caseload
+# (all races, before race filter) so the count reflects true experience at the
+# time of each case, not just experience with Black/Latino/White defendants.
+pros_case_seq <- dp_raw |>
+  filter(`OUTTAKE-PROSECUTOR` %in% fresh_outtake, !is.na(`OUTTAKE-PROSECUTOR`),
+         !is.na(`CASE-DATE`)) |>
+  mutate(OFFENSE_RANK = match(`OFFENSE-CLASS`, offense_order),
+         OFFENSE_RANK = ifelse(is.na(OFFENSE_RANK), 99L, OFFENSE_RANK)) |>
+  arrange(`CASE-CAUSE-NBR`, OFFENSE_RANK) |>
+  distinct(`CASE-CAUSE-NBR`, .keep_all = TRUE) |>
+  select(`CASE-CAUSE-NBR`, `OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
   arrange(`OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
   group_by(`OUTTAKE-PROSECUTOR`) |>
   mutate(OUTTAKE_CASE_N = row_number()) |>
   ungroup() |>
+  select(`CASE-CAUSE-NBR`, OUTTAKE_CASE_N)
+
+dp_out_case <- dp_out_case |>
+  left_join(pros_case_seq, by = "CASE-CAUSE-NBR") |>
   mutate(OUTTAKE_CASE_N100 = OUTTAKE_CASE_N / 100)
 
 # Defendant career sequence (proxy for prior record)

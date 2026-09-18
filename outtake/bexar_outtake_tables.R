@@ -60,10 +60,6 @@ dp_out <- dp_raw |>
   arrange(`CASE-CAUSE-NBR`, OFFENSE_RANK) |>
   distinct(`CASE-CAUSE-NBR`, .keep_all = TRUE) |>
   select(-OFFENSE_RANK) |>
-  arrange(`OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
-  group_by(`OUTTAKE-PROSECUTOR`) |>
-  mutate(OUTTAKE_CASE_N = row_number()) |>
-  ungroup() |>
   mutate(
     BLACK    = as.integer(`RACE-LABEL` == "Black"),
     LATINO   = as.integer(`RACE-LABEL` == "Latino"),
@@ -84,6 +80,25 @@ dp_out <- dp_raw |>
     ),
     OFFENSE_CATEGORY2 = fct_relevel(OFFENSE_CATEGORY2, "Other")
   )
+
+# Outtake experience: running case count from full caseload (all races)
+pros_case_seq <- dp_raw |>
+  filter(`OUTTAKE-PROSECUTOR` %in% fresh_outtake, !is.na(`OUTTAKE-PROSECUTOR`),
+         !is.na(`CASE-DATE`)) |>
+  mutate(OFFENSE_RANK = match(`OFFENSE-CLASS`, offense_order),
+         OFFENSE_RANK = ifelse(is.na(OFFENSE_RANK), 99L, OFFENSE_RANK)) |>
+  arrange(`CASE-CAUSE-NBR`, OFFENSE_RANK) |>
+  distinct(`CASE-CAUSE-NBR`, .keep_all = TRUE) |>
+  select(`CASE-CAUSE-NBR`, `OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
+  arrange(`OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  mutate(OUTTAKE_CASE_N = row_number()) |>
+  ungroup() |>
+  select(`CASE-CAUSE-NBR`, OUTTAKE_CASE_N)
+
+dp_out <- dp_out |>
+  left_join(pros_case_seq, by = "CASE-CAUSE-NBR") |>
+  mutate(OUTTAKE_CASE_N100 = OUTTAKE_CASE_N / 100)
 
 # ── Table 1: Main interaction coefficients ────────────────────────────────────
 
