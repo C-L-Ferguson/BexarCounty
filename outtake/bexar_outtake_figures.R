@@ -35,11 +35,26 @@ dp_out <- dp_raw |>
   mutate(OFFENSE_RANK = match(`OFFENSE-CLASS`, offense_order)) |>
   arrange(`CASE-CAUSE-NBR`, OFFENSE_RANK) |>
   distinct(`CASE-CAUSE-NBR`, .keep_all = TRUE) |>
-  select(-OFFENSE_RANK) |>
+  select(-OFFENSE_RANK)
+
+# Build OUTTAKE_CASE_N from full caseload (all races) so experience quintiles
+# match the regression in bexar_outtake_models.R
+pros_case_seq <- dp_raw |>
+  filter(`OUTTAKE-PROSECUTOR` %in% fresh_outtake, !is.na(`OUTTAKE-PROSECUTOR`),
+         !is.na(`CASE-DATE`)) |>
+  mutate(OFFENSE_RANK = match(`OFFENSE-CLASS`, offense_order),
+         OFFENSE_RANK = ifelse(is.na(OFFENSE_RANK), 99L, OFFENSE_RANK)) |>
+  arrange(`CASE-CAUSE-NBR`, OFFENSE_RANK) |>
+  distinct(`CASE-CAUSE-NBR`, .keep_all = TRUE) |>
+  select(`CASE-CAUSE-NBR`, `OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
   arrange(`OUTTAKE-PROSECUTOR`, `CASE-DATE`) |>
   group_by(`OUTTAKE-PROSECUTOR`) |>
   mutate(OUTTAKE_CASE_N = row_number()) |>
   ungroup() |>
+  select(`CASE-CAUSE-NBR`, OUTTAKE_CASE_N)
+
+dp_out <- dp_out |>
+  left_join(pros_case_seq, by = "CASE-CAUSE-NBR") |>
   mutate(
     EXP_QUINTILE = ntile(OUTTAKE_CASE_N, 5),
     Race = factor(`RACE-LABEL`, levels = c("Black", "Latino", "White"))
@@ -423,7 +438,7 @@ save_fig(p7, "fig7_dotplot_start_vs_peak.png", w = 11, h = 5)
 res <- read_csv(file.path(DATA_DIR, "bexar_outtake_model_results.csv"),
                 show_col_types = FALSE)
 
-rob_models <- c("SpecD_WithPriors", "SpecC_DefAge", "SpecC_AppointedOnly")
+rob_models <- c("SpecC_ProsecutorFE", "SpecC_DefAge", "SpecC_AppointedOnly")
 rob_labels <- c("Benchmark", "+ Age control", "Appointed only")
 
 coef_plot_data <- res |>
@@ -460,7 +475,7 @@ p8 <- ggplot(coef_plot_data, aes(x = estimate, y = model, color = model)) +
     y       = NULL,
     caption = paste0(
       "Notes: Horizontal bars are 95% confidence intervals, SEs clustered by prosecutor.\n",
-      "Benchmark = Spec D (prosecutor FE + defendant case N). All felony cases 1991–2015."
+      "Benchmark = Spec C (prosecutor FE). All felony cases 1991–2015."
     )
   ) +
   theme_paper +
