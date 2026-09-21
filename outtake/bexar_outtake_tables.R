@@ -973,9 +973,16 @@ pros_summary <- pros_era |>
     mean_cases      = mean(n_cases),
     median_cases    = median(n_cases[n_cases >= 50]),
     n_50plus        = sum(n_cases >= 50),
+    n_25plus        = sum(n_cases >= 25),
     mean_span       = mean(career_span),
     pct_spanning    = mean(spans_transition) * 100
   )
+
+message(sprintf("Median cases (>=50): %.0f  (N=%d prosecutors)",
+                pros_summary$median_cases, pros_summary$n_50plus))
+message(sprintf("Median cases (>=25): %.0f  (N=%d prosecutors)",
+                median(pros_era$n_cases[pros_era$n_cases >= 25]),
+                pros_summary$n_25plus))
 
 # Case-level stats by defendant race
 races_ordered <- c("Black", "Latino", "White")
