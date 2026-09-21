@@ -963,6 +963,127 @@ tex6 <- c(tex6,
 
 write_tex(tex6, file.path(DATA_DIR, "bexar_outtake_table6.tex"))
 
+# ── Table 7: Completed careers + within-offense-type robustness ───────────────
+
+focal7 <- c("Black $\\times$ Career Case $N$ (per 100)",
+            "Latino $\\times$ Career Case $N$ (per 100)",
+            "Black", "Latino", "Career Case $N$ (per 100)")
+
+# Panel A: completed careers only (SpecD_CompletedCareers)
+completed_data <- res |>
+  filter(model == "SpecD_CompletedCareers") |>
+  mutate(
+    term_clean = case_when(
+      term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
+      term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error)
+  ) |>
+  filter(!is.na(term_clean)) |>
+  mutate(term_clean = factor(term_clean, levels = focal7)) |>
+  arrange(term_clean)
+
+# Panel B: within-offense-type (M7)
+m7_models  <- paste0("M7_", c("F1", "F2", "F3", "FS"), "_only")
+m7_labels  <- c("F1", "F2", "F3", "FS")
+focal7_int <- c("Black $\\times$ Career Case $N$ (per 100)",
+                "Latino $\\times$ Career Case $N$ (per 100)")
+
+m7_data <- res |>
+  filter(model %in% m7_models) |>
+  mutate(
+    term_clean = case_when(
+      term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error),
+    model    = factor(model, levels = m7_models, labels = m7_labels)
+  ) |>
+  filter(!is.na(term_clean)) |>
+  mutate(term_clean = factor(term_clean, levels = focal7_int))
+
+m7_est <- m7_data |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(m7_labels), ~ replace_na(., "---")))
+
+m7_se <- m7_data |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(m7_labels), ~ replace_na(., "")))
+
+tex7 <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\caption{Robustness: Completed Careers and Within-Offense-Type}",
+  "\\label{tab:robustness2_out}",
+  "\\begin{tabular}{lcccc}",
+  "\\hline\\hline",
+  "\\multicolumn{5}{l}{\\textit{Panel A: Completed careers only (prosecutors departed before 2015)}} \\\\",
+  "\\hline",
+  " & \\multicolumn{4}{c}{Benchmark (Prosecutor FE)} \\\\",
+  "\\cmidrule(lr){2-5}"
+)
+
+# Panel A rows
+for (i in seq_len(nrow(completed_data))) {
+  e <- completed_data[i, ]
+  tex7 <- c(tex7,
+    paste0(e$term_clean, " & \\multicolumn{4}{c}{", e$est_cell, "} \\\\"),
+    paste0(" & \\multicolumn{4}{c}{", e$se_cell, "} \\\\"),
+    "& & & & \\\\"
+  )
+}
+
+tex7 <- c(tex7,
+  "Prosecutor FE & \\multicolumn{4}{c}{Yes} \\\\",
+  "Offense type \\& category FE & \\multicolumn{4}{c}{Yes} \\\\",
+  "Attorney type & \\multicolumn{4}{c}{Yes} \\\\",
+  "\\hline",
+  "\\multicolumn{5}{l}{\\textit{Panel B: Within felony class (separate regressions)}} \\\\",
+  "\\hline",
+  paste0(" & ", paste(m7_labels, collapse = " & "), " \\\\"),
+  "\\hline"
+)
+
+# Panel B rows
+for (i in seq_len(nrow(m7_est))) {
+  e <- m7_est[i, ]; s <- m7_se[i, ]
+  tex7 <- c(tex7,
+    paste0(e$term_clean, " & ",
+           paste(sapply(m7_labels, function(l) e[[l]]), collapse = " & "), " \\\\"),
+    paste0(" & ",
+           paste(sapply(m7_labels, function(l) s[[l]]), collapse = " & "), " \\\\"),
+    "& & & & \\\\"
+  )
+}
+
+tex7 <- c(tex7,
+  "\\hline\\hline",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Panel A restricts to prosecutors whose last observed case is before 2015,} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize addressing right-censoring of active prosecutors. Panel B estimates separate logistic} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize regressions within each felony class (no prosecutor FE; offense category and attorney} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize type controls included). SEs clustered by prosecutor where applicable. 1991--2015.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex7, file.path(DATA_DIR, "bexar_outtake_table7_robustness2.tex"))
+
 # ── Table 0: Summary statistics ───────────────────────────────────────────────
 # Column breakdown: Black defendants, Latino defendants, White defendants, All
 
