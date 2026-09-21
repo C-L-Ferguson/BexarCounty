@@ -72,9 +72,9 @@ dp_out <- dp_raw |>
       str_detect(`OFFENSE-DESC`, "MURDER|HOMICIDE|MANSLAUGHTER") ~ "Homicide",
       str_detect(`OFFENSE-DESC`, "AGG ASSLT|ASSLT|INJURY TO CHILD|RETALIATION") ~ "Assault",
       str_detect(`OFFENSE-DESC`, "FORG|CREDIT/DEBIT|FRAUD|THEFT|UNAUTH USE VEH|CRIM MISCH") ~ "Property",
-      str_detect(`OFFENSE-DESC`, "DWI|DRIV WHILE INTOX") ~ "DWI",
+      str_detect(`OFFENSE-DESC`, "DWI|DRIV WHILE INTOX|DRIVING WHILE INTOX") ~ "DWI",
       str_detect(`OFFENSE-DESC`, "SEX|RAPE|INDECENCY|SEXUAL") ~ "Sex",
-      str_detect(`OFFENSE-DESC`, "WEAPON|WPN|CARRY") ~ "Weapon",
+      str_detect(`OFFENSE-DESC`, "WEAPON|WPN|CARRY|FELON POSS FIREARM") ~ "Weapon",
       TRUE ~ "Other"
     ),
     OFFENSE_CATEGORY2 = fct_relevel(OFFENSE_CATEGORY2, "Other")
