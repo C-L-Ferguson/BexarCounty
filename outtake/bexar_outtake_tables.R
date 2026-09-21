@@ -1034,8 +1034,7 @@ tex7 <- c(
   "\\hline\\hline",
   "\\multicolumn{5}{l}{\\textit{Panel A: Completed careers only (prosecutors departed before 2015)}} \\\\",
   "\\hline",
-  " & \\multicolumn{4}{c}{Benchmark (Prosecutor FE)} \\\\",
-  "\\cmidrule(lr){2-5}"
+  " & \\multicolumn{4}{c}{Benchmark (Prosecutor FE)} \\\\"
 )
 
 # Panel A rows
