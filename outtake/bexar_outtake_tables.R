@@ -199,9 +199,10 @@ tex1 <- c(tex1,
 
 write_tex(tex1, file.path(DATA_DIR, "bexar_outtake_table1.tex"))
 
-# ── Table 2 (main): Two-column version — cols (3) and (4) only ───────────────
+# ── Table 2 (main): Single-column — SpecC (Prosecutor FE) only ───────────────
+# SpecD (+ prior record proxy) is reported in a footnote.
 
-main2_models <- c("SpecC_ProsecutorFE", "SpecD_WithPriors")
+main2_models <- c("SpecC_ProsecutorFE")
 
 t2_est <- table_data |>
   filter(term_clean %in% focal_rows, model %in% main2_models) |>
@@ -219,38 +220,53 @@ t2_se <- table_data |>
   arrange(term_clean) |>
   mutate(across(any_of(main2_models), ~ replace_na(., "")))
 
+# Pull SpecD coefficients for footnote
+specD_black <- res |>
+  filter(model == "SpecD_WithPriors",
+         term %in% c("BLACK:OUTTAKE_CASE_N100","OUTTAKE_CASE_N100:BLACK")) |>
+  slice(1)
+specD_latino <- res |>
+  filter(model == "SpecD_WithPriors",
+         term %in% c("LATINO:OUTTAKE_CASE_N100","OUTTAKE_CASE_N100:LATINO")) |>
+  slice(1)
+
+specD_black_str  <- fmt_est(specD_black$estimate,  specD_black$p.value)
+specD_black_se   <- fmt_se(specD_black$std.error)
+specD_latino_str <- fmt_est(specD_latino$estimate, specD_latino$p.value)
+specD_latino_se  <- fmt_se(specD_latino$std.error)
+
 tex2_main <- c(
   "\\begin{table}[htbp]",
   "\\centering",
   "\\caption{Deferred Adjudication and Prosecutor Experience}",
   "\\label{tab:main2_out}",
-  "\\begin{tabular}{lcc}",
+  "\\begin{tabular}{lc}",
   "\\hline\\hline",
-  " & (1) & (2) \\\\",
-  " & Prosecutor FE & Prosecutor FE + Priors \\\\",
+  " & Prosecutor FE \\\\",
   "\\hline"
 )
 
 for (i in seq_len(nrow(t2_est))) {
   e <- t2_est[i, ]; s <- t2_se[i, ]
   tex2_main <- c(tex2_main,
-    paste0(e$term_clean, " & ", e$SpecC_ProsecutorFE, " & ", e$SpecD_WithPriors, " \\\\"),
-    paste0(" & ", s$SpecC_ProsecutorFE, " & ", s$SpecD_WithPriors, " \\\\"),
-    "& & \\\\"
+    paste0(e$term_clean, " & ", e$SpecC_ProsecutorFE, " \\\\"),
+    paste0(" & ", s$SpecC_ProsecutorFE, " \\\\"),
+    "& \\\\"
   )
 }
 
 tex2_main <- c(tex2_main,
   "\\hline",
-  "Prosecutor FE & Yes & Yes \\\\",
-  "Offense type \\& category FE & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes \\\\",
-  "Defendant case $N$ & No & Yes \\\\",
+  "Prosecutor FE & Yes \\\\",
+  "Offense type \\& category FE & Yes \\\\",
+  "Attorney type & Yes \\\\",
   "\\hline\\hline",
-  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize SEs clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize Col.~(2) adds defendant cumulative case count as proxy for prior record.} \\\\",
-  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize SEs clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  paste0("\\multicolumn{2}{l}{\\footnotesize Adding defendant cumulative case count as a prior record proxy attenuates the} \\\\"),
+  paste0("\\multicolumn{2}{l}{\\footnotesize Black interaction to ", specD_black_str, " ", specD_black_se,
+         " and the Latino interaction to ", specD_latino_str, " ", specD_latino_se, ".} \\\\"),
+  "\\multicolumn{2}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
 )
@@ -453,7 +469,7 @@ write_tex(tex3, file.path(DATA_DIR, "bexar_outtake_table3.tex"))
 # ── Table 3: Robustness checks ───────────────────────────────────────────────
 # Col 1: benchmark (SpecD_WithPriors), Col 2: defendant age, Col 3: appointed only
 
-rob_models <- c("SpecD_WithPriors", "SpecC_DefAge", "SpecC_AppointedOnly")
+rob_models <- c("SpecC_ProsecutorFE", "SpecC_DefAge", "SpecC_AppointedOnly")
 rob_labels <- c("Benchmark", "$+$ Defendant Age", "Appointed Counsel Only")
 focal_rob  <- c("Black $\\times$ Career Case $N$ (per 100)",
                 "Latino $\\times$ Career Case $N$ (per 100)",
@@ -508,9 +524,9 @@ tex3_rob <- c(
 for (i in seq_len(nrow(t3_est))) {
   e <- t3_est[i, ]; s <- t3_se[i, ]
   tex3_rob <- c(tex3_rob,
-    paste0(e$term_clean, " & ", e$SpecD_WithPriors,
+    paste0(e$term_clean, " & ", e$SpecC_ProsecutorFE,
            " & ", e$SpecC_DefAge, " & ", e$SpecC_AppointedOnly, " \\\\"),
-    paste0(" & ", s$SpecD_WithPriors,
+    paste0(" & ", s$SpecC_ProsecutorFE,
            " & ", s$SpecC_DefAge, " & ", s$SpecC_AppointedOnly, " \\\\"),
     "& & & \\\\"
   )
@@ -521,12 +537,12 @@ tex3_rob <- c(tex3_rob,
   "Prosecutor FE & Yes & Yes & Yes \\\\",
   "Offense type \\& category FE & Yes & Yes & Yes \\\\",
   "Attorney type & Yes & Yes & No \\\\",
-  "Defendant case $N$ & Yes & Yes & Yes \\\\",
+  "Defendant case $N$ & No & No & No \\\\",
   "Defendant age & No & Yes & No \\\\",
   "Sample & All & Age 16--80 & Appointed only \\\\",
   "\\hline\\hline",
   "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2 col.~(4).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2.} \\\\",
   "\\multicolumn{4}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
   "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
