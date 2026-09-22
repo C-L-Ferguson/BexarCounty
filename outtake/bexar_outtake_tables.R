@@ -1083,6 +1083,60 @@ tex7 <- c(tex7,
 
 write_tex(tex7, file.path(DATA_DIR, "bexar_outtake_table7_robustness2.tex"))
 
+# ── Table 8: Prior cases by race and prosecutor experience quintile ────────────
+
+prior_by_q <- dp_out_case |>
+  filter(`RACE-LABEL` %in% c("Black", "Latino", "White"),
+         !is.na(DEFENDANT_CASE_N), !is.na(EXP_QUINTILE)) |>
+  group_by(EXP_QUINTILE, `RACE-LABEL`) |>
+  summarise(mean_prior = round(mean(DEFENDANT_CASE_N, na.rm = TRUE), 2),
+            .groups = "drop") |>
+  pivot_wider(names_from = `RACE-LABEL`, values_from = mean_prior) |>
+  arrange(EXP_QUINTILE)
+
+q_labels <- c("Q1 (least experienced)", "Q2", "Q3", "Q4", "Q5 (most experienced)")
+
+wb_q1 <- round(prior_by_q$Black[1] - prior_by_q$White[1], 2)
+wb_q5 <- round(prior_by_q$Black[5] - prior_by_q$White[5], 2)
+wl_q1 <- round(prior_by_q$Latino[1] - prior_by_q$White[1], 2)
+wl_q5 <- round(prior_by_q$Latino[5] - prior_by_q$White[5], 2)
+
+tex8 <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\caption{Mean Defendant Prior Cases by Race and Prosecutor Experience Quintile}",
+  "\\label{tab:prior_by_quintile}",
+  "\\begin{tabular}{lccc}",
+  "\\hline\\hline",
+  " & Black & Latino & White \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(prior_by_q))) {
+  r <- prior_by_q[i, ]
+  tex8 <- c(tex8,
+    paste0(q_labels[i], " & ", r$Black, " & ", r$Latino, " & ", r$White, " \\\\")
+  )
+}
+
+tex8 <- c(tex8,
+  "\\hline",
+  paste0("B--W gap (Q1) & \\multicolumn{3}{c}{", sprintf("%.2f", wb_q1), "} \\\\"),
+  paste0("B--W gap (Q5) & \\multicolumn{3}{c}{", sprintf("%.2f", wb_q5), "} \\\\"),
+  paste0("L--W gap (Q1) & \\multicolumn{3}{c}{", sprintf("%.2f", wl_q1), "} \\\\"),
+  paste0("L--W gap (Q5) & \\multicolumn{3}{c}{", sprintf("%.2f", wl_q5), "} \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Mean cumulative Bexar County case count per defendant,} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize by prosecutor experience quintile. A stable or narrowing gap across} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize quintiles rules out the confound that experienced prosecutors are} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize assigned Black or Latino defendants with progressively worse prior records.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Sample: felony cases, prosecutors first observed 1991+, 1991--2015.} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex8, file.path(DATA_DIR, "bexar_outtake_table8_prior_by_quintile.tex"))
+
 # ── Table 0: Summary statistics ───────────────────────────────────────────────
 # Column breakdown: Black defendants, Latino defendants, White defendants, All
 
