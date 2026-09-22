@@ -244,11 +244,18 @@ completed_pros <- dp_out_case |>
   filter(last_year < 2015) |>
   pull(`OUTTAKE-PROSECUTOR`)
 
+specC_completed <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(as.character(PROSECUTOR) %in% completed_pros),
+  fe_vars = "PROSECUTOR", "SpecC_CompletedCareers")
+
 specD_completed <- run_feglm(
   DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
     BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
     OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEFENDANT_CASE_N,
-  df |> filter(`OUTTAKE-PROSECUTOR` %in% completed_pros),
+  df |> filter(as.character(PROSECUTOR) %in% completed_pros),
   fe_vars = "PROSECUTOR", "SpecD_CompletedCareers")
 
 # ── M8: Deferred conditional on any plea ─────────────────────────────────────
@@ -275,7 +282,7 @@ m9 <- run_feglm(
 
 all_results <- bind_rows(specA, specB, specC, specD, m7,
                          era_hilbig, era_reed, specC_age,
-                         specC_appointed, specD_completed, m8, m9) |>
+                         specC_appointed, specC_completed, specD_completed, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_outtake_model_results.csv"))

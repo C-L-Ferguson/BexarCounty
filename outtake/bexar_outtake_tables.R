@@ -970,9 +970,9 @@ focal7 <- c("Black $\\times$ Career Case $N$ (per 100)",
             "Latino $\\times$ Career Case $N$ (per 100)",
             "Black", "Latino", "Career Case $N$ (per 100)")
 
-# Panel A: completed careers only (SpecD_CompletedCareers)
+# Panel A: completed careers only (SpecC_CompletedCareers)
 completed_data <- res |>
-  filter(model == "SpecD_CompletedCareers") |>
+  filter(model == "SpecC_CompletedCareers") |>
   mutate(
     term_clean = case_when(
       term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
@@ -1073,10 +1073,10 @@ for (i in seq_len(nrow(m7_est))) {
 
 tex7 <- c(tex7,
   "\\hline\\hline",
-  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Panel A restricts to prosecutors whose last observed case is before 2015,} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize addressing right-censoring of active prosecutors. Panel B estimates separate logistic} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize regressions within each felony class (no prosecutor FE; offense category and attorney} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize type controls included). SEs clustered by prosecutor where applicable. 1991--2015.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Panel A restricts to prosecutors whose last observed case is before 2015 ($N=306$ prosecutors,} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize $N=29{,}706$ cases), addressing right-censoring of active prosecutors. Specification mirrors Table~2 (Spec~C).} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Panel B estimates separate logistic regressions within each felony class (no prosecutor FE; offense} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize category and attorney type controls included). SEs clustered by prosecutor where applicable. 1991--2015.} \\\\",
   "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}",
   "\\end{table}"
