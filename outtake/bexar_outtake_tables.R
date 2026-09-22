@@ -964,6 +964,90 @@ tex6 <- c(tex6,
 
 write_tex(tex6, file.path(DATA_DIR, "bexar_outtake_table6.tex"))
 
+# ── Table 6b: Prosecutor–Defendant Race Dyad Model ────────────────────────────
+# Tests whether Hispanic prosecutors develop a larger anti-Latino gap than
+# White prosecutors as experience accumulates (three-way interaction)
+
+df_pros_dyad <- df_pros |>
+  filter(`RACE-LABEL` %in% c("Latino", "White"),
+         pros_pred_race %in% c("Hispanic", "White")) |>
+  mutate(
+    HISP_PROS  = as.integer(pros_pred_race == "Hispanic"),
+    LATINO_DEF = as.integer(`RACE-LABEL` == "Latino")
+  )
+
+fit_dyad <- feglm(
+  DEFERRED ~ LATINO_DEF + OUTTAKE_CASE_N100 +
+    HISP_PROS +
+    LATINO_DEF:OUTTAKE_CASE_N100 +
+    OUTTAKE_CASE_N100:HISP_PROS +
+    LATINO_DEF:HISP_PROS +
+    LATINO_DEF:OUTTAKE_CASE_N100:HISP_PROS +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data = df_pros_dyad,
+  fixef = "PROSECUTOR",
+  family = binomial(),
+  cluster = "PROSECUTOR"
+)
+
+dyad_tidy <- broom::tidy(fit_dyad, conf.int = TRUE)
+
+fmt_dyad <- function(term_str) {
+  row <- dyad_tidy |> filter(term == term_str)
+  if (nrow(row) == 0) return(list(est = "---", se = ""))
+  list(est = fmt_est(row$estimate, row$p.value),
+       se  = fmt_se(row$std.error))
+}
+
+d_lat   <- fmt_dyad("LATINO_DEF")
+d_exp   <- fmt_dyad("OUTTAKE_CASE_N100")
+d_lat_x <- fmt_dyad("LATINO_DEF:OUTTAKE_CASE_N100")
+d_3way  <- fmt_dyad("LATINO_DEF:OUTTAKE_CASE_N100:HISP_PROS")
+
+n_dyad_white <- nrow(df_pros_dyad |> filter(pros_pred_race == "White"))
+n_dyad_hisp  <- nrow(df_pros_dyad |> filter(pros_pred_race == "Hispanic"))
+
+tex6b <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\caption{Prosecutor--Defendant Race Dyad: Latino Gap by Prosecutor Race}",
+  "\\label{tab:dyad_out}",
+  "\\begin{tabular}{lc}",
+  "\\hline\\hline",
+  " & (1) \\\\",
+  " & Latino--White Defendants \\\\",
+  " & White \\& Hispanic Prosecutors \\\\",
+  "\\hline",
+  paste0("Latino defendant & ", d_lat$est, " \\\\"),
+  paste0(" & ", d_lat$se, " \\\\"),
+  "& \\\\",
+  paste0("Career Case $N$ (per 100) & ", d_exp$est, " \\\\"),
+  paste0(" & ", d_exp$se, " \\\\"),
+  "& \\\\",
+  paste0("Latino $\\times$ Career Case $N$ (White prosecutors) & ", d_lat_x$est, " \\\\"),
+  paste0(" & ", d_lat_x$se, " \\\\"),
+  "& \\\\",
+  paste0("Latino $\\times$ Career Case $N$ $\\times$ Hispanic prosecutor & ", d_3way$est, " \\\\"),
+  paste0(" & ", d_3way$se, " \\\\"),
+  "& \\\\",
+  "\\hline",
+  "Prosecutor FE & Yes \\\\",
+  "Offense type \\& category FE & Yes \\\\",
+  "Attorney type & Yes \\\\",
+  paste0("$N$ (White prosecutor cases) & $", formatC(n_dyad_white, format = "d", big.mark = ","), "$ \\\\"),
+  paste0("$N$ (Hispanic prosecutor cases) & $", formatC(n_dyad_hisp, format = "d", big.mark = ","), "$ \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{2}{l}{\\footnotesize \\textit{Notes:} Sample restricted to Latino and White defendants before White and Hispanic} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize prosecutors. Prosecutor FE logistic regression. The three-way interaction tests whether} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize Hispanic prosecutors develop a larger Latino--White gap with experience than White prosecutors.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize Prosecutor race predicted from surname (\\texttt{wru}). SEs clustered by prosecutor. 1991--2015.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex6b, file.path(DATA_DIR, "bexar_outtake_table6b_dyad.tex"))
+
 # ── Table 7: Completed careers + within-offense-type robustness ───────────────
 
 focal7 <- c("Black $\\times$ Career Case $N$ (per 100)",
