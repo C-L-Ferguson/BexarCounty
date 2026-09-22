@@ -152,7 +152,7 @@ n_specC_val  <- "146,202"
 n_specD_val  <- "146,202"
 
 tex1 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Deferred Adjudication and Prosecutor Experience: Focal Interaction Coefficients}",
   "\\label{tab:main_out}",
@@ -236,7 +236,7 @@ specD_latino_str <- fmt_est(specD_latino$estimate, specD_latino$p.value)
 specD_latino_se  <- fmt_se(specD_latino$std.error)
 
 tex2_main <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Deferred Adjudication and Prosecutor Experience}",
   "\\label{tab:main2_out}",
@@ -307,7 +307,7 @@ if (nrow(m7_est) > 0) {
   col_spec <- paste0("l", paste(rep("c", n_cols), collapse = ""))
 
   tex2 <- c(
-    "\\begin{table}[htbp]",
+    "\\begin{table}[H]",
     "\\centering",
     "\\caption{Within-Offense-Type Estimates}",
     "\\label{tab:offense_out}",
@@ -415,7 +415,7 @@ for (j in seq_along(offense_types)) {
 }
 
 tex3 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Predicted Probability of Deferred Adjudication by Race and Prosecutor Experience}",
   "\\label{tab:pred_out}",
@@ -509,7 +509,7 @@ t3_se <- rob_data |>
   mutate(across(any_of(rob_models), ~ replace_na(., "")))
 
 tex3_rob <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Robustness Checks}",
   "\\label{tab:robustness_out}",
@@ -593,7 +593,7 @@ t5_se <- plea_data |>
   mutate(across(any_of(plea_models), ~ replace_na(., "")))
 
 tex5_plea <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Deferred Adjudication vs.\\ Straight Conviction: Conditional on Plea}",
   "\\label{tab:plea_out}",
@@ -680,7 +680,7 @@ era_se <- era_data |>
   arrange(term_clean)
 
 tex4 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Learning Curve by DA Era: Hilbig vs.\\ Reed Hires}",
   "\\label{tab:era_out}",
@@ -749,7 +749,7 @@ for (j in seq_along(offense_types)) {
 }
 
 tex5 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Racial Gap in Deferred Adjudication at Career Start vs.\\ Peak, by Offense Class}",
   "\\label{tab:gap_by_offense_out}",
@@ -916,7 +916,7 @@ n_hisp_pros  <- nrow(df_pros |> filter(pros_pred_race == "Hispanic"))
 n_black_pros <- nrow(df_pros |> filter(pros_pred_race == "Black"))
 
 tex6 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Racial Gap in Deferred Adjudication by Prosecutor Race}",
   "\\label{tab:pros_race_out}",
@@ -1026,7 +1026,7 @@ m7_se <- m7_data |>
   mutate(across(any_of(m7_labels), ~ replace_na(., "")))
 
 tex7 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Robustness: Completed Careers and Within-Offense-Type}",
   "\\label{tab:robustness2_out}",
@@ -1256,7 +1256,7 @@ row_line <- function(label, cells) {
 n_row_cells <- sapply(col_order, function(r) f0(t0[t0$race == r, "n_cases", drop = TRUE]))
 
 tex0 <- c(
-  "\\begin{table}[htbp]",
+  "\\begin{table}[H]",
   "\\centering",
   "\\caption{Summary Statistics: Prosecutor Sample, 1991--2015}",
   "\\label{tab:sumstats_out}",
