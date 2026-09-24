@@ -469,8 +469,8 @@ write_tex(tex3, file.path(DATA_DIR, "bexar_outtake_table3.tex"))
 # ── Table 3: Robustness checks ───────────────────────────────────────────────
 # Col 1: benchmark (SpecD_WithPriors), Col 2: defendant age, Col 3: appointed only
 
-rob_models <- c("SpecC_ProsecutorFE", "SpecC_DefAge", "SpecC_AppointedOnly")
-rob_labels <- c("Benchmark", "$+$ Defendant Age", "Appointed Counsel Only")
+rob_models <- c("SpecC_ProsecutorFE", "SpecC_DefAge", "SpecC_AppointedOnly", "SpecC_YearFE")
+rob_labels <- c("Benchmark", "$+$ Defendant Age", "Appointed Counsel Only", "$+$ Year FE")
 focal_rob  <- c("Black $\\times$ Career Case $N$ (per 100)",
                 "Latino $\\times$ Career Case $N$ (per 100)",
                 "Black", "Latino", "Career Case $N$ (per 100)")
@@ -514,9 +514,9 @@ tex3_rob <- c(
   "\\caption{Robustness Checks}",
   "\\label{tab:robustness_out}",
   "\\resizebox{\\textwidth}{!}{%",
-  "\\begin{tabular}{lccc}",
+  "\\begin{tabular}{lcccc}",
   "\\hline\\hline",
-  paste0(" & (1) & (2) & (3) \\\\"),
+  paste0(" & (1) & (2) & (3) & (4) \\\\"),
   paste0(" & ", paste(rob_labels, collapse = " & "), " \\\\"),
   "\\hline"
 )
@@ -525,26 +525,30 @@ for (i in seq_len(nrow(t3_est))) {
   e <- t3_est[i, ]; s <- t3_se[i, ]
   tex3_rob <- c(tex3_rob,
     paste0(e$term_clean, " & ", e$SpecC_ProsecutorFE,
-           " & ", e$SpecC_DefAge, " & ", e$SpecC_AppointedOnly, " \\\\"),
+           " & ", e$SpecC_DefAge, " & ", e$SpecC_AppointedOnly,
+           " & ", e$SpecC_YearFE, " \\\\"),
     paste0(" & ", s$SpecC_ProsecutorFE,
-           " & ", s$SpecC_DefAge, " & ", s$SpecC_AppointedOnly, " \\\\"),
-    "& & & \\\\"
+           " & ", s$SpecC_DefAge, " & ", s$SpecC_AppointedOnly,
+           " & ", s$SpecC_YearFE, " \\\\"),
+    "& & & & \\\\"
   )
 }
 
 tex3_rob <- c(tex3_rob,
   "\\hline",
-  "Prosecutor FE & Yes & Yes & Yes \\\\",
-  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & No \\\\",
-  "Defendant case $N$ & No & No & No \\\\",
-  "Defendant age & No & Yes & No \\\\",
-  "Sample & All & Age 16--80 & Appointed only \\\\",
+  "Prosecutor FE & Yes & Yes & Yes & Yes \\\\",
+  "Case year FE & No & No & No & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & No & Yes \\\\",
+  "Defendant case $N$ & No & No & No & No \\\\",
+  "Defendant age & No & Yes & No & No \\\\",
+  "Sample & All & Age 16--80 & Appointed only & All \\\\",
   "\\hline\\hline",
-  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Prosecutor fixed-effects logistic regression. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Col.~(4) adds case year fixed effects; year FE absorb the main experience effect but interactions are unchanged.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
 )
