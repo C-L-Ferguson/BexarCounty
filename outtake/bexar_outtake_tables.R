@@ -1176,7 +1176,8 @@ write_tex(tex7, file.path(DATA_DIR, "bexar_outtake_table7_robustness2.tex"))
 
 prior_by_q <- dp_out_case |>
   filter(`RACE-LABEL` %in% c("Black", "Latino", "White"),
-         !is.na(DEFENDANT_CASE_N), !is.na(EXP_QUINTILE)) |>
+         !is.na(DEFENDANT_CASE_N), !is.na(OUTTAKE_CASE_N)) |>
+  mutate(EXP_QUINTILE = ntile(OUTTAKE_CASE_N, 5)) |>
   group_by(EXP_QUINTILE, `RACE-LABEL`) |>
   summarise(mean_prior = round(mean(DEFENDANT_CASE_N, na.rm = TRUE), 2),
             .groups = "drop") |>
