@@ -12,7 +12,7 @@
 #   bexar_outtake_table4.tex — DA-era robustness
 #   bexar_outtake_table5.tex — career start vs peak gap
 
-DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
 
 library(tidyverse)
 library(arrow)
