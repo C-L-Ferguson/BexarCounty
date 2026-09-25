@@ -1338,12 +1338,12 @@ for (i in seq_len(nrow(offense_mix))) {
 
 tex_mix <- c(tex_mix,
   "\\hline\\hline",
-  "\\multicolumn{7}{l}{\\footnotesize Each cell shows the percentage of cases in that race-quintile cell falling into the offense category.} \\\\",
-  "\\multicolumn{7}{l}{\\footnotesize The offense mix shifts similarly across quintiles for all three racial groups, with no evidence that} \\\\",
-  "\\multicolumn{7}{l}{\\footnotesize White defendants' cases shift disproportionately toward higher-deferred categories. Sample: felony} \\\\",
-  "\\multicolumn{7}{l}{\\footnotesize cases, prosecutors first observed 1991+, 1991--2015.} \\\\",
   "\\end{tabular}",
   "}",
+  "\\\\[2pt]",
+  "\\begin{minipage}{\\textwidth}",
+  "\\footnotesize \\textit{Notes:} Each cell shows the percentage of cases in that race-quintile cell falling into the offense category. The offense mix shifts similarly across quintiles for all three racial groups, with no evidence that White defendants' cases shift disproportionately toward higher-deferred categories. Sample: felony cases, prosecutors first observed 1991+, 1991--2015.",
+  "\\end{minipage}",
   "\\end{table}"
 )
 
