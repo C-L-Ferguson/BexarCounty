@@ -258,6 +258,37 @@ specD_completed <- run_feglm(
   df |> filter(as.character(PROSECUTOR) %in% completed_pros),
   fe_vars = "PROSECUTOR", "SpecD_CompletedCareers")
 
+# ── Min 25 cases robustness ───────────────────────────────────────────────────
+
+pros_25 <- pros_case_seq |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  summarise(n_cases = max(OUTTAKE_CASE_N), .groups = "drop") |>
+  filter(n_cases >= 25) |>
+  pull(`OUTTAKE-PROSECUTOR`)
+
+specC_min25 <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(as.character(PROSECUTOR) %in% pros_25),
+  fe_vars = "PROSECUTOR", "SpecC_Min25Cases")
+
+# ── All-5-quintiles robustness (selection check) ──────────────────────────────
+
+pros_all5 <- dp_out_case |>
+  mutate(quintile = ntile(OUTTAKE_CASE_N, 5)) |>
+  group_by(`OUTTAKE-PROSECUTOR`) |>
+  summarise(n_quintiles = n_distinct(quintile), .groups = "drop") |>
+  filter(n_quintiles == 5) |>
+  pull(`OUTTAKE-PROSECUTOR`)
+
+specC_all5 <- run_feglm(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  df |> filter(as.character(PROSECUTOR) %in% pros_all5),
+  fe_vars = "PROSECUTOR", "SpecC_All5Quintiles")
+
 # ── M8: Deferred conditional on any plea ─────────────────────────────────────
 
 df_plea <- dp_out_case |>
@@ -282,7 +313,8 @@ m9 <- run_feglm(
 
 all_results <- bind_rows(specA, specB, specC, specD, m7,
                          era_hilbig, era_reed, specC_age,
-                         specC_appointed, specC_completed, specD_completed, m8, m9) |>
+                         specC_appointed, specC_completed, specD_completed,
+                         specC_min25, specC_all5, m8, m9) |>
   select(model, term, estimate, std.error, statistic, p.value, conf.low, conf.high, OR)
 
 write_csv(all_results, file.path(DATA_DIR, "bexar_outtake_model_results.csv"))

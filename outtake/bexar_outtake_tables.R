@@ -1226,6 +1226,64 @@ tex8 <- c(tex8,
 
 write_tex(tex8, file.path(DATA_DIR, "bexar_outtake_table8_prior_by_quintile.tex"))
 
+# ── Table: All-5-Quintiles Robustness ────────────────────────────────────────
+
+all5_data <- res |>
+  filter(model == "SpecC_All5Quintiles") |>
+  mutate(
+    term_clean = case_when(
+      term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
+      term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error)
+  ) |>
+  filter(!is.na(term_clean)) |>
+  mutate(term_clean = factor(term_clean, levels = focal7)) |>
+  arrange(term_clean)
+
+tex_all5 <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\caption{Robustness: Prosecutors Spanning All Five Experience Quintiles}",
+  "\\label{tab:all5quintiles}",
+  "\\begin{tabular}{lc}",
+  "\\hline\\hline",
+  " & Prosecutor FE \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(all5_data))) {
+  e <- all5_data[i, ]
+  tex_all5 <- c(tex_all5,
+    paste0(e$term_clean, " & ", e$est_cell, " \\\\"),
+    paste0(" & ", e$se_cell, " \\\\"),
+    " & \\\\"
+  )
+}
+
+tex_all5 <- c(tex_all5,
+  "Prosecutor FE & Yes \\\\",
+  "Offense type \\& category & Yes \\\\",
+  "Attorney type & Yes \\\\",
+  "Prosecutors & 38 \\\\",
+  "Observations & 68,241 \\\\",
+  "\\hline\\hline",
+  "\\multicolumn{2}{l}{\\footnotesize Restricts to the 38 prosecutors whose careers span all five experience quintiles (1,055$+$ cases).} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize Prosecutor FE identifies within-career change only. SEs clustered by prosecutor. 1991--2015.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex_all5, file.path(DATA_DIR, "bexar_outtake_table_all5quintiles.tex"))
+
 # ── Table 0: Summary statistics ───────────────────────────────────────────────
 # Column breakdown: Black defendants, Latino defendants, White defendants, All
 
