@@ -1287,6 +1287,9 @@ write_tex(tex_all5, file.path(DATA_DIR, "bexar_outtake_table_all5quintiles.tex")
 
 # ── Table: Offense mix by race and experience quintile ───────────────────────
 
+cat_order <- c("Drug", "Property", "Assault", "Burglary", "DWI",
+               "Evading", "Homicide", "Sex", "Weapon", "Other")
+
 offense_mix <- dp_out_case |>
   filter(`RACE-LABEL` %in% c("Black", "Latino", "White"),
          !is.na(OFFENSE_CATEGORY2), !is.na(OUTTAKE_CASE_N)) |>
@@ -1301,25 +1304,24 @@ offense_mix <- dp_out_case |>
   pivot_wider(names_from = c(`RACE-LABEL`, EXP_QUINTILE),
               values_from = share,
               names_glue = "{`RACE-LABEL`}_Q{EXP_QUINTILE}") |>
+  mutate(
+    Black_change  = round(Black_Q5  - Black_Q1,  1),
+    Latino_change = round(Latino_Q5 - Latino_Q1, 1),
+    White_change  = round(White_Q5  - White_Q1,  1),
+    OFFENSE_CATEGORY2 = factor(OFFENSE_CATEGORY2, levels = cat_order)
+  ) |>
   arrange(OFFENSE_CATEGORY2)
 
-cat_order <- c("Drug", "Property", "Assault", "Burglary", "DWI",
-               "Evading", "Homicide", "Sex", "Weapon", "Other")
-
-offense_mix <- offense_mix |>
-  mutate(OFFENSE_CATEGORY2 = factor(OFFENSE_CATEGORY2, levels = cat_order)) |>
-  arrange(OFFENSE_CATEGORY2)
+fmt_change <- function(x) ifelse(is.na(x), "---", ifelse(x > 0, paste0("+", x), as.character(x)))
 
 tex_mix <- c(
   "\\begin{table}[H]",
   "\\centering",
-  "\\caption{Offense Category Mix by Race and Prosecutor Experience Quintile (\\%)}",
+  "\\caption{Change in Offense Category Mix from Q1 to Q5, by Race (percentage points)}",
   "\\label{tab:offense_mix}",
-  "\\small",
-  "\\begin{tabular}{lcccccc}",
+  "\\begin{tabular}{lccc}",
   "\\hline\\hline",
-  " & \\multicolumn{2}{c}{Black} & \\multicolumn{2}{c}{Latino} & \\multicolumn{2}{c}{White} \\\\",
-  " & Q1 & Q5 & Q1 & Q5 & Q1 & Q5 \\\\",
+  " & Black & Latino & White \\\\",
   "\\hline"
 )
 
@@ -1327,12 +1329,9 @@ for (i in seq_len(nrow(offense_mix))) {
   r <- offense_mix[i, ]
   tex_mix <- c(tex_mix,
     paste0(r$OFFENSE_CATEGORY2, " & ",
-           replace_na(r$Black_Q1, "---"), " & ",
-           replace_na(r$Black_Q5, "---"), " & ",
-           replace_na(r$Latino_Q1, "---"), " & ",
-           replace_na(r$Latino_Q5, "---"), " & ",
-           replace_na(r$White_Q1, "---"), " & ",
-           replace_na(r$White_Q5, "---"), " \\\\")
+           fmt_change(r$Black_change), " & ",
+           fmt_change(r$Latino_change), " & ",
+           fmt_change(r$White_change), " \\\\")
   )
 }
 
@@ -1341,7 +1340,7 @@ tex_mix <- c(tex_mix,
   "\\end{tabular}",
   "\\\\[2pt]",
   "\\begin{minipage}{\\textwidth}",
-  "\\footnotesize \\textit{Notes:} Each cell shows the percentage of cases in that race-quintile cell falling into the offense category. The offense mix shifts similarly across quintiles for all three racial groups, with no evidence that White defendants' cases shift disproportionately toward higher-deferred categories. Sample: felony cases, prosecutors first observed 1991+, 1991--2015.",
+  "\\footnotesize \\textit{Notes:} Each cell shows the change in offense category share (Q5 minus Q1) within each racial group. Similar shifts across racial groups rule out the confound that experienced prosecutors disproportionately see White defendants in higher-deferred offense categories. Sample: felony cases, prosecutors first observed 1991+, 1991--2015.",
   "\\end{minipage}",
   "\\end{table}"
 )
