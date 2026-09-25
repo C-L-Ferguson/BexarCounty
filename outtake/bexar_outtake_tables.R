@@ -1315,6 +1315,7 @@ tex_mix <- c(
   "\\centering",
   "\\caption{Offense Category Mix by Race and Prosecutor Experience Quintile (\\%)}",
   "\\label{tab:offense_mix}",
+  "\\small",
   "\\resizebox{\\textwidth}{!}{",
   "\\begin{tabular}{lcccccc}",
   "\\hline\\hline",
