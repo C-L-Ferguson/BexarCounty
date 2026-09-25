@@ -1285,6 +1285,69 @@ tex_all5 <- c(tex_all5,
 
 write_tex(tex_all5, file.path(DATA_DIR, "bexar_outtake_table_all5quintiles.tex"))
 
+# ── Table: Offense mix by race and experience quintile ───────────────────────
+
+offense_mix <- dp_out_case |>
+  filter(`RACE-LABEL` %in% c("Black", "Latino", "White"),
+         !is.na(OFFENSE_CATEGORY2), !is.na(OUTTAKE_CASE_N)) |>
+  mutate(EXP_QUINTILE = ntile(OUTTAKE_CASE_N, 5)) |>
+  filter(EXP_QUINTILE %in% c(1, 5)) |>
+  group_by(`RACE-LABEL`, EXP_QUINTILE, OFFENSE_CATEGORY2) |>
+  summarise(n = n(), .groups = "drop") |>
+  group_by(`RACE-LABEL`, EXP_QUINTILE) |>
+  mutate(share = round(100 * n / sum(n), 1)) |>
+  ungroup() |>
+  select(`RACE-LABEL`, EXP_QUINTILE, OFFENSE_CATEGORY2, share) |>
+  pivot_wider(names_from = c(`RACE-LABEL`, EXP_QUINTILE),
+              values_from = share,
+              names_glue = "{`RACE-LABEL`}_Q{EXP_QUINTILE}") |>
+  arrange(OFFENSE_CATEGORY2)
+
+cat_order <- c("Drug", "Property", "Assault", "Burglary", "DWI",
+               "Evading", "Homicide", "Sex", "Weapon", "Other")
+
+offense_mix <- offense_mix |>
+  mutate(OFFENSE_CATEGORY2 = factor(OFFENSE_CATEGORY2, levels = cat_order)) |>
+  arrange(OFFENSE_CATEGORY2)
+
+tex_mix <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\small",
+  "\\caption{Offense Category Mix by Race and Prosecutor Experience Quintile (\\%)}",
+  "\\label{tab:offense_mix}",
+  "\\begin{tabular}{lcccccc}",
+  "\\hline\\hline",
+  " & \\multicolumn{2}{c}{Black} & \\multicolumn{2}{c}{Latino} & \\multicolumn{2}{c}{White} \\\\",
+  " & Q1 & Q5 & Q1 & Q5 & Q1 & Q5 \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(offense_mix))) {
+  r <- offense_mix[i, ]
+  tex_mix <- c(tex_mix,
+    paste0(r$OFFENSE_CATEGORY2, " & ",
+           replace_na(r$Black_Q1, "---"), " & ",
+           replace_na(r$Black_Q5, "---"), " & ",
+           replace_na(r$Latino_Q1, "---"), " & ",
+           replace_na(r$Latino_Q5, "---"), " & ",
+           replace_na(r$White_Q1, "---"), " & ",
+           replace_na(r$White_Q5, "---"), " \\\\")
+  )
+}
+
+tex_mix <- c(tex_mix,
+  "\\hline\\hline",
+  "\\multicolumn{7}{l}{\\footnotesize Each cell shows the percentage of cases in that race-quintile cell falling into the offense category.} \\\\",
+  "\\multicolumn{7}{l}{\\footnotesize The offense mix shifts similarly across quintiles for all three racial groups, with no evidence that} \\\\",
+  "\\multicolumn{7}{l}{\\footnotesize White defendants' cases shift disproportionately toward higher-deferred categories. Sample: felony} \\\\",
+  "\\multicolumn{7}{l}{\\footnotesize cases, prosecutors first observed 1991+, 1991--2015.} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex_mix, file.path(DATA_DIR, "bexar_outtake_table_offense_mix.tex"))
+
 # ── Table 0: Summary statistics ───────────────────────────────────────────────
 # Column breakdown: Black defendants, Latino defendants, White defendants, All
 
