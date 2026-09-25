@@ -1313,9 +1313,9 @@ offense_mix <- offense_mix |>
 tex_mix <- c(
   "\\begin{table}[H]",
   "\\centering",
-  "\\small",
   "\\caption{Offense Category Mix by Race and Prosecutor Experience Quintile (\\%)}",
   "\\label{tab:offense_mix}",
+  "\\resizebox{\\textwidth}{!}{",
   "\\begin{tabular}{lcccccc}",
   "\\hline\\hline",
   " & \\multicolumn{2}{c}{Black} & \\multicolumn{2}{c}{Latino} & \\multicolumn{2}{c}{White} \\\\",
@@ -1343,6 +1343,7 @@ tex_mix <- c(tex_mix,
   "\\multicolumn{7}{l}{\\footnotesize White defendants' cases shift disproportionately toward higher-deferred categories. Sample: felony} \\\\",
   "\\multicolumn{7}{l}{\\footnotesize cases, prosecutors first observed 1991+, 1991--2015.} \\\\",
   "\\end{tabular}",
+  "}",
   "\\end{table}"
 )
 
