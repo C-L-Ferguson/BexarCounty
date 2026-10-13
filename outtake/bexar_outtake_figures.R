@@ -353,7 +353,7 @@ fit_pred7 <- glm(
   data = dp_out_pred, family = binomial()
 )
 
-max_n100 <- max(dp_out_pred$OUTTAKE_CASE_N100, na.rm = TRUE)
+max_n100 <- quantile(dp_out_pred$OUTTAKE_CASE_N100, 0.90, na.rm = TRUE)
 modal_oc2 <- names(sort(table(dp_out_pred$OFFENSE_CATEGORY2), decreasing = TRUE))[1]
 
 offense_types  <- c("F1", "F2", "F3", "FS")
