@@ -418,7 +418,7 @@ p7 <- ggplot(dot_rows, aes(y = offense)) +
     x       = "Predicted gap (percentage points)",
     y       = NULL,
     caption = str_wrap(paste0(
-      "Notes: Blue dot = career start (case 1); red dot = career peak (maximum observed case N). ",
+      "Notes: Blue dot = career start (case 1); red dot = career peak (90th percentile of career length, approximately 1,566 cases). ",
       "Predicted from logistic regression at modal offense category and attorney type = appointed counsel. ",
       "Sample: felony cases, prosecutors first observed 1991 or later, 1991–2015."
     ), width = 110)
