@@ -1409,8 +1409,11 @@ dp_out_names <- names(dp_out)
 message("dp_out columns: ", paste(dp_out_names, collapse = ", "))
 
 # Build summary using available columns; handle gracefully
+# Restrict to analysis sample (non-missing OFFENSE_CATEGORY2) to match regression N
+dp_out_analysis <- dp_out |> filter(!is.na(OFFENSE_CATEGORY2))
+
 t0_by_race <- map_dfr(races_ordered, function(r) {
-  sub <- dp_out |> filter(`RACE-LABEL` == r)
+  sub <- dp_out_analysis |> filter(`RACE-LABEL` == r)
   tibble(
     race           = r,
     n_cases        = nrow(sub),
@@ -1425,7 +1428,7 @@ t0_by_race <- map_dfr(races_ordered, function(r) {
   )
 })
 
-t0_all <- dp_out |>
+t0_all <- dp_out_analysis |>
   summarise(
     race           = "All",
     n_cases        = n(),
@@ -1450,10 +1453,10 @@ if (has_dismissed) {
   t0_full <- t0_full |> left_join(
     bind_rows(
       map_dfr(races_ordered, function(r) {
-        sub <- dp_out |> filter(`RACE-LABEL` == r)
+        sub <- dp_out_analysis |> filter(`RACE-LABEL` == r)
         tibble(race = r, pct_dismissed = mean(sub[[dism_var]], na.rm = TRUE) * 100)
       }),
-      dp_out |> summarise(race = "All", pct_dismissed = mean(.data[[dism_var]], na.rm = TRUE) * 100)
+      dp_out_analysis |> summarise(race = "All", pct_dismissed = mean(.data[[dism_var]], na.rm = TRUE) * 100)
     ), by = "race")
 } else {
   t0_full$pct_dismissed <- NA_real_
@@ -1464,10 +1467,10 @@ if (has_prior) {
   t0_full <- t0_full |> left_join(
     bind_rows(
       map_dfr(races_ordered, function(r) {
-        sub <- dp_out |> filter(`RACE-LABEL` == r)
+        sub <- dp_out_analysis |> filter(`RACE-LABEL` == r)
         tibble(race = r, pct_prior = mean(sub[[prior_var]], na.rm = TRUE) * 100)
       }),
-      dp_out |> summarise(race = "All", pct_prior = mean(.data[[prior_var]], na.rm = TRUE) * 100)
+      dp_out_analysis |> summarise(race = "All", pct_prior = mean(.data[[prior_var]], na.rm = TRUE) * 100)
     ), by = "race")
 } else {
   # Construct from SID using full raw CSV history (all years) so left-censoring
