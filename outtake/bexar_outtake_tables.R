@@ -1787,4 +1787,128 @@ tex_lpm6 <- c(tex_lpm6,
 
 write_tex(tex_lpm6, file.path(DATA_DIR, "bexar_lpm_table6_pros_race.tex"))
 
+# ── LPM Table 5: Robustness checks ───────────────────────────────────────────
+# Mirrors logit Table 5: (1) Benchmark, (2) +Defendant Age,
+# (3) Appointed Counsel Only, (4) +Year FE
+
+lpm_bench <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR,
+  data = df_lpm, cluster = ~PROSECUTOR)
+
+df_lpm_age <- df_lpm |>
+  filter(!is.na(BIRTHDATE)) |>
+  mutate(DEF_AGE = as.numeric(difftime(`CASE-DATE`, BIRTHDATE, units = "days")) / 365.25) |>
+  filter(DEF_AGE >= 16, DEF_AGE <= 80)
+
+lpm_age <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED + DEF_AGE | PROSECUTOR,
+  data = df_lpm_age, cluster = ~PROSECUTOR)
+
+lpm_appointed <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 | PROSECUTOR,
+  data = df_lpm |> filter(APPOINTED == 1), cluster = ~PROSECUTOR)
+
+lpm_yearfe <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR + CASE_YEAR_FE,
+  data = df_lpm, cluster = ~PROSECUTOR)
+
+clean_lpm_rob <- function(fit, label) {
+  tidy(fit, conf.int = TRUE) |>
+    mutate(
+      model = label,
+      term_clean = case_when(
+        term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+          "Black $\\times$ Career Case $N$ (per 100)",
+        term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+          "Latino $\\times$ Career Case $N$ (per 100)",
+        term == "BLACK"             ~ "Black",
+        term == "LATINO"            ~ "Latino",
+        term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+        TRUE ~ NA_character_
+      ),
+      est_cell = fmt_est(estimate, p.value),
+      se_cell  = fmt_se(std.error)
+    ) |>
+    filter(!is.na(term_clean))
+}
+
+lpm_rob_results <- bind_rows(
+  clean_lpm_rob(lpm_bench,     "Benchmark"),
+  clean_lpm_rob(lpm_age,       "DefAge"),
+  clean_lpm_rob(lpm_appointed, "AppointedOnly"),
+  clean_lpm_rob(lpm_yearfe,    "YearFE")
+)
+
+lpm_rob_focal <- c("Black $\\times$ Career Case $N$ (per 100)",
+                   "Latino $\\times$ Career Case $N$ (per 100)",
+                   "Black", "Latino", "Career Case $N$ (per 100)")
+
+lpm_rob_models <- c("Benchmark", "DefAge", "AppointedOnly", "YearFE")
+
+lpm_rob_est <- lpm_rob_results |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  mutate(term_clean = factor(term_clean, levels = lpm_rob_focal)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(lpm_rob_models), ~ replace_na(., "---")))
+
+lpm_rob_se <- lpm_rob_results |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = lpm_rob_focal)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(lpm_rob_models), ~ replace_na(., "")))
+
+tex_lpm_rob <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\caption{Robustness Checks (Linear Probability Model)}",
+  "\\label{tab:lpm_robustness}",
+  "\\resizebox{\\textwidth}{!}{%",
+  "\\begin{tabular}{lcccc}",
+  "\\hline\\hline",
+  " & (1) & (2) & (3) & (4) \\\\",
+  " & Benchmark & $+$ Defendant Age & Appointed Counsel Only & $+$ Year FE \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(lpm_rob_est))) {
+  e <- lpm_rob_est[i, ]; s <- lpm_rob_se[i, ]
+  tex_lpm_rob <- c(tex_lpm_rob,
+    paste0(e$term_clean, " & ", e$Benchmark, " & ", e$DefAge,
+           " & ", e$AppointedOnly, " & ", e$YearFE, " \\\\"),
+    paste0(" & ", s$Benchmark, " & ", s$DefAge,
+           " & ", s$AppointedOnly, " & ", s$YearFE, " \\\\"),
+    "& & & & \\\\"
+  )
+}
+
+tex_lpm_rob <- c(tex_lpm_rob,
+  "\\hline",
+  "Prosecutor FE & Yes & Yes & Yes & Yes \\\\",
+  "Case year FE & No & No & No & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & No & Yes \\\\",
+  "Defendant age & No & Yes & No & No \\\\",
+  "Sample & All & Age 16--80 & Appointed only & All \\\\",
+  "\\hline\\hline",
+  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Linear probability model with prosecutor fixed effects. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize Col.~(4) adds case year fixed effects; year FE absorb the main experience effect but interactions are unchanged.} \\\\",
+  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}}",
+  "\\end{table}"
+)
+
+write_tex(tex_lpm_rob, file.path(DATA_DIR, "bexar_lpm_table5_robustness.tex"))
+
 message("\nAll outtake tables saved to ", DATA_DIR)
