@@ -1584,4 +1584,207 @@ tex0 <- c(tex0,
 
 write_tex(tex0, file.path(DATA_DIR, "bexar_outtake_table0_sumstats.tex"))
 
+# ── LPM Tables ───────────────────────────────────────────────────────────────
+# Linear probability model versions of Table 2 (main) and Table 6 (prosecutor
+# race split). Models run inline here; results not in bexar_outtake_model_results.csv.
+
+library(fixest)
+library(broom)
+
+df_lpm <- dp_out |> filter(!is.na(OFFENSE_CATEGORY2)) |>
+  mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`))
+
+# ── LPM Table 2: Main spec (SpecC equivalent) ────────────────────────────────
+
+lpm_main <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR,
+  data = df_lpm, cluster = ~PROSECUTOR)
+
+lpm_main_tidy <- tidy(lpm_main, conf.int = TRUE)
+
+lpm_focal <- c("Black $\\times$ Career Case $N$ (per 100)",
+               "Latino $\\times$ Career Case $N$ (per 100)",
+               "Black", "Latino", "Career Case $N$ (per 100)")
+
+lpm_main_rows <- lpm_main_tidy |>
+  mutate(
+    term_clean = case_when(
+      term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+        "Black $\\times$ Career Case $N$ (per 100)",
+      term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+        "Latino $\\times$ Career Case $N$ (per 100)",
+      term == "BLACK"             ~ "Black",
+      term == "LATINO"            ~ "Latino",
+      term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+      TRUE ~ NA_character_
+    ),
+    est_cell = fmt_est(estimate, p.value),
+    se_cell  = fmt_se(std.error)
+  ) |>
+  filter(!is.na(term_clean)) |>
+  mutate(term_clean = factor(term_clean, levels = lpm_focal)) |>
+  arrange(term_clean)
+
+tex_lpm2 <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\caption{Deferred Adjudication and Prosecutor Experience (Linear Probability Model)}",
+  "\\label{tab:lpm_main}",
+  "\\begin{tabular}{lc}",
+  "\\hline\\hline",
+  " & Prosecutor FE \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(lpm_main_rows))) {
+  r <- lpm_main_rows[i, ]
+  tex_lpm2 <- c(tex_lpm2,
+    paste0(r$term_clean, " & ", r$est_cell, " \\\\"),
+    paste0(" & ", r$se_cell, " \\\\"),
+    "& \\\\"
+  )
+}
+
+tex_lpm2 <- c(tex_lpm2,
+  "\\hline",
+  "Prosecutor FE & Yes \\\\",
+  "Offense type \\& category FE & Yes \\\\",
+  "Attorney type & Yes \\\\",
+  paste0("$N$ & $", formatC(nrow(df_lpm), big.mark = ","), "$ \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{2}{l}{\\footnotesize \\textit{Notes:} Linear probability model with prosecutor fixed effects. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize Standard errors in parentheses, clustered by prosecutor. Sample: felony cases, prosecutors first observed 1991+.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize Prosecutor = disposition-stage prosecutor. Career case $N$ = cumulative case count per prosecutor.} \\\\",
+  "\\multicolumn{2}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}",
+  "\\end{table}"
+)
+
+write_tex(tex_lpm2, file.path(DATA_DIR, "bexar_lpm_table2_main.tex"))
+
+# ── LPM Table 6: Prosecutor race split ───────────────────────────────────────
+# Requires df_pros and pros_pred_race built in Table 6 section above (wru block)
+
+df_lpm_pros <- df_pros |>
+  mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`))
+
+lpm_white_pros <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR,
+  data = df_lpm_pros |> filter(pros_pred_race == "White"),
+  cluster = ~PROSECUTOR)
+
+lpm_hisp_pros <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR,
+  data = df_lpm_pros |> filter(pros_pred_race == "Hispanic"),
+  cluster = ~PROSECUTOR)
+
+# Black prosecutors: too few for FE
+lpm_black_pros <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
+  data = df_lpm_pros |> filter(pros_pred_race == "Black"),
+  cluster = ~PROSECUTOR)
+
+clean_lpm_pros <- function(fit, label) {
+  tidy(fit, conf.int = TRUE) |>
+    mutate(
+      model = label,
+      term_clean = case_when(
+        term %in% c("BLACK:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:BLACK") ~
+          "Black $\\times$ Career Case $N$ (per 100)",
+        term %in% c("LATINO:OUTTAKE_CASE_N100", "OUTTAKE_CASE_N100:LATINO") ~
+          "Latino $\\times$ Career Case $N$ (per 100)",
+        term == "BLACK"             ~ "Black",
+        term == "LATINO"            ~ "Latino",
+        term == "OUTTAKE_CASE_N100" ~ "Career Case $N$ (per 100)",
+        TRUE ~ NA_character_
+      ),
+      est_cell = fmt_est(estimate, p.value),
+      se_cell  = fmt_se(std.error)
+    ) |>
+    filter(!is.na(term_clean))
+}
+
+lpm_pros_results <- bind_rows(
+  clean_lpm_pros(lpm_white_pros, "WhitePros"),
+  clean_lpm_pros(lpm_hisp_pros,  "HispanicPros"),
+  clean_lpm_pros(lpm_black_pros, "BlackPros")
+)
+
+lpm6_focal <- c("Black $\\times$ Career Case $N$ (per 100)",
+                "Latino $\\times$ Career Case $N$ (per 100)",
+                "Black", "Latino", "Career Case $N$ (per 100)")
+
+lpm6_est <- lpm_pros_results |>
+  select(term_clean, model, est_cell) |>
+  pivot_wider(names_from = model, values_from = est_cell) |>
+  mutate(term_clean = factor(term_clean, levels = lpm6_focal)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(c("WhitePros","HispanicPros","BlackPros")), ~ replace_na(., "---")))
+
+lpm6_se <- lpm_pros_results |>
+  select(term_clean, model, se_cell) |>
+  pivot_wider(names_from = model, values_from = se_cell) |>
+  mutate(term_clean = factor(term_clean, levels = lpm6_focal)) |>
+  arrange(term_clean) |>
+  mutate(across(any_of(c("WhitePros","HispanicPros","BlackPros")), ~ replace_na(., "")))
+
+n_lpm_white <- nrow(df_lpm_pros |> filter(pros_pred_race == "White"))
+n_lpm_hisp  <- nrow(df_lpm_pros |> filter(pros_pred_race == "Hispanic"))
+n_lpm_black <- nrow(df_lpm_pros |> filter(pros_pred_race == "Black"))
+
+tex_lpm6 <- c(
+  "\\begin{table}[H]",
+  "\\centering",
+  "\\caption{Racial Gap in Deferred Adjudication by Prosecutor Race (LPM)}",
+  "\\label{tab:lpm_pros_race}",
+  "\\resizebox{\\textwidth}{!}{%",
+  "\\begin{tabular}{lccc}",
+  "\\hline\\hline",
+  " & White Prosecutors & Hispanic Prosecutors & Black Prosecutors$^{\\dagger}$ \\\\",
+  "\\hline"
+)
+
+for (i in seq_len(nrow(lpm6_est))) {
+  e <- lpm6_est[i, ]; s <- lpm6_se[i, ]
+  wp  <- if ("WhitePros"    %in% names(e)) e$WhitePros    else "---"
+  hp  <- if ("HispanicPros" %in% names(e)) e$HispanicPros else "---"
+  bp  <- if ("BlackPros"    %in% names(e)) e$BlackPros    else "---"
+  wps <- if ("WhitePros"    %in% names(s)) s$WhitePros    else ""
+  hps <- if ("HispanicPros" %in% names(s)) s$HispanicPros else ""
+  bps <- if ("BlackPros"    %in% names(s)) s$BlackPros    else ""
+  tex_lpm6 <- c(tex_lpm6,
+    paste0(e$term_clean, " & ", wp, " & ", hp, " & ", bp, " \\\\"),
+    paste0(" & ", wps, " & ", hps, " & ", bps, " \\\\"),
+    "& & & \\\\"
+  )
+}
+
+tex_lpm6 <- c(tex_lpm6,
+  "\\hline",
+  "Prosecutor FE & Yes & Yes & No \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & Yes \\\\",
+  paste0("$N$ & $", formatC(n_lpm_white, big.mark = ","), "$ & $",
+         formatC(n_lpm_hisp, big.mark = ","), "$ & $",
+         formatC(n_lpm_black, big.mark = ","), "$ \\\\"),
+  "\\hline\\hline",
+  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Linear probability model. Each column estimates the benchmark model on a subsample defined by predicted prosecutor race.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize Cols.\\ 1--2: prosecutor FE. Col.\\ 3: no FE (too few Black prosecutors). Prosecutor race predicted from surname (\\texttt{wru}).} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize SEs clustered by prosecutor (cols.\\ 1--2). 1991--2015.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{\\dagger}$Black prosecutor sample small ($N\\approx2{,}500$, 6 prosecutors); suggestive only.} \\\\",
+  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\end{tabular}}",
+  "\\end{table}"
+)
+
+write_tex(tex_lpm6, file.path(DATA_DIR, "bexar_lpm_table6_pros_race.tex"))
+
 message("\nAll outtake tables saved to ", DATA_DIR)
