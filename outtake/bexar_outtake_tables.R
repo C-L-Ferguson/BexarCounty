@@ -1409,8 +1409,8 @@ dp_out_names <- names(dp_out)
 message("dp_out columns: ", paste(dp_out_names, collapse = ", "))
 
 # Build summary using available columns; handle gracefully
-# Restrict to analysis sample (non-missing OFFENSE_CATEGORY2) to match regression N
-dp_out_analysis <- dp_out |> filter(!is.na(OFFENSE_CATEGORY2))
+# Restrict to analysis sample (non-missing APPOINTED) to match regression N=147,059
+dp_out_analysis <- dp_out |> filter(!is.na(APPOINTED))
 
 t0_by_race <- map_dfr(races_ordered, function(r) {
   sub <- dp_out_analysis |> filter(`RACE-LABEL` == r)
@@ -1603,7 +1603,7 @@ prior_counts <- dp_out |>
 
 df_lpm <- dp_out |>
   left_join(prior_counts, by = "CASE-CAUSE-NBR") |>
-  filter(!is.na(OFFENSE_CATEGORY2)) |>
+  filter(!is.na(APPOINTED)) |>
   mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`),
          CASE_YEAR_FE = factor(`CASE-YEAR`))
 
