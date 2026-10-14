@@ -200,9 +200,115 @@ etable(specC, specC_lpm, specC_tenure_lpm,
        keep = c("BLACK", "LATINO", "OUTTAKE_CASE_N100", "TENURE"))
 # EXPECT logit: Black -.492, Latino -.637, Black x exp -.0101 (p=.024); LPM: Black -.101, Latino -.126, Black x exp -.0020
 
-# ---------- 12. EXPORT ----------
+# ---------- 12. PROSECUTOR SEX ----------
+# Predict prosecutor sex from first name using the gender package.
+# install.packages("gender") if needed.
+library(gender)
+
+prosecutor_names <- tibble(name = unique(dp_main$`OUTTAKE-PROSECUTOR`)) |>
+  mutate(first_name = str_extract(name, "(?<=, )\\w+") |> str_to_title())
+
+gender_pred <- gender(unique(prosecutor_names$first_name), method = "ssa") |>
+  select(name, gender, proportion_female)
+
+prosecutor_names <- prosecutor_names |>
+  left_join(gender_pred, by = c("first_name" = "name")) |>
+  mutate(PROS_FEMALE = as.integer(gender == "female"))
+
+# Hand-code the 9 with initial-only first names
+manual_gender <- tribble(
+  ~name,                    ~PROS_FEMALE_MANUAL,
+  "WALTERS, DEEPALI M",     1L,
+  "BALLANTYNE, S PATRICK",  0L,
+  "HAYES, H ROBERT",        0L,
+  "ISHAM, R SHAY",          NA_integer_,
+  "WOODBY, T GRANT",        0L,
+  "RANKIN, H H",            NA_integer_,
+  "GUTIERREZ, J JAVIER",    0L,
+  "HAYDEN, D WADE",         0L,
+  "NIXON, A CHRISTOPHER",   0L
+)
+
+prosecutor_names <- prosecutor_names |>
+  left_join(manual_gender, by = "name") |>
+  mutate(PROS_FEMALE = coalesce(PROS_FEMALE, PROS_FEMALE_MANUAL))
+
+dp_main <- dp_main |>
+  left_join(prosecutor_names |> select(name, PROS_FEMALE),
+            by = c("OUTTAKE-PROSECUTOR" = "name"))
+
+# Interaction: does gap differ by prosecutor sex? (PROS_FEMALE absorbed by prosecutor FE)
+m8_sex <- feols(DEFERRED_GRANT ~ BLACK + LATINO +
+                  BLACK:PROS_FEMALE + LATINO:PROS_FEMALE +
+                  OFFENSE_TYPE + OFFENSE_CAT + APPOINTED +
+                  PRIOR_BIN + PRIOR_CONV_BIN + PRIOR_DEF_BIN + FEMALE + AGE + I(AGE^2)
+                | PROSECUTOR + GJURY_YEAR + COURT_F,
+                data = filter(dp_main, !is.na(PROS_FEMALE)), cluster = ~PROSECUTOR)
+print(coeftable(m8_sex)[c("BLACK", "LATINO", "BLACK:PROS_FEMALE", "LATINO:PROS_FEMALE"), ])
+# EXPECT: BLACK:PROS_FEMALE +0.001 (p=.88), LATINO:PROS_FEMALE -0.004 (p=.52) — null
+
+# ---------- 13. DA ADMINISTRATION ERA ----------
+da_era_fn <- function(year) case_when(
+  year <= 1998 ~ "Hilbig",
+  year <= 2014 ~ "Reed",
+  year <= 2018 ~ "LaHood",
+  TRUE         ~ "Gonzales"
+)
+
+dp_main <- dp_main |>
+  mutate(DA_ERA = fct_relevel(da_era_fn(GJURY_YEAR), "Gonzales"))
+
+m8_da <- feols(DEFERRED_GRANT ~ BLACK + LATINO + BLACK:DA_ERA + LATINO:DA_ERA +
+                 OFFENSE_TYPE + OFFENSE_CAT + APPOINTED +
+                 PRIOR_BIN + PRIOR_CONV_BIN + PRIOR_DEF_BIN + FEMALE + AGE + I(AGE^2)
+               | PROSECUTOR + GJURY_YEAR + COURT_F,
+               data = dp_main, cluster = ~PROSECUTOR)
+print(coeftable(m8_da)[grep("BLACK|LATINO", rownames(coeftable(m8_da))), ])
+# EXPECT: BLACK:DA_ERAReed -.047 (p=.002), BLACK:DA_ERALaHood -.032 (p=.054)
+# Gap was largest under Reed; narrows under Gonzales (reference category)
+
+# ---------- 14. REVOCATION AND CONVICTION AFTER DEFERRED GRANT ----------
+# Among defendants who received deferred adjudication, are Black/Latino defendants
+# more likely to be revoked and ultimately convicted?
+# NOTE: revocation prosecutor FE not possible (non-revoked cases have no revocation prosecutor).
+# Results are descriptive controlling for grant prosecutor, year, court, offense, prior record.
+# Censoring: gaps are larger in earlier windows because recent cases haven't had time to be revoked.
+# Use 2014 window as main result (allows ~5+ years of supervision); 2019 is a lower bound.
+
+dp_deferred <- dp_main |>
+  filter(DEFERRED_GRANT == 1) |>
+  mutate(REVOKED = as.integer(!is.na(`REVOKATION-PROSECUTOR`) &
+                                `REVOKATION-PROSECUTOR` != ""))
+
+# Raw revocation rates by race
+dp_deferred |>
+  group_by(`RACE-LABEL`) |>
+  summarise(n = n(), revoke_rate = mean(REVOKED), .groups = "drop") |>
+  print()
+# EXPECT: Black .541, Latino .525, White .434
+
+fit_revoke <- function(outcome, data) {
+  feols(as.formula(paste(outcome, "~ BLACK + LATINO + OFFENSE_TYPE + OFFENSE_CAT +",
+                         "PRIOR_BIN + PRIOR_CONV_BIN + PRIOR_DEF_BIN + FEMALE + AGE + I(AGE^2)",
+                         "| PROSECUTOR + GJURY_YEAR + COURT_F")),
+        data = data, cluster = ~PROSECUTOR)
+}
+
+d19 <- dp_deferred
+d14 <- filter(dp_deferred, GJURY_YEAR <= 2014)
+d12 <- filter(dp_deferred, GJURY_YEAR <= 2012)
+
+etable(fit_revoke("REVOKED", d19), fit_revoke("REVOKED", d14), fit_revoke("REVOKED", d12),
+       keep = "BLACK|LATINO",
+       headers = c("Revoc <=2019", "Revoc <=2014", "Revoc <=2012"))
+# EXPECT Black: .068/.105/.113 | Latino: .068/.082/.085 — all p<.001
+# Gaps larger in earlier windows due to censoring; use 2014 as main result
+
+# ---------- 15. EXPORT ----------
 etable(m1, m2, m3, m4, m5, m6, m7, m8, keep = "BLACK|LATINO", tex = TRUE,
        file = file.path(OUT_DIR, "table_gap_progression.tex"))
 etable(m_first, m_prior, keep = "BLACK|LATINO", tex = TRUE, file = file.path(OUT_DIR, "table_by_prior_record.tex"))
 etable(m8x, keep = "BLACK|LATINO|OUTTAKE", tex = TRUE, file = file.path(OUT_DIR, "table_experience.tex"))
+etable(fit_revoke("REVOKED", d19), fit_revoke("REVOKED", d14), fit_revoke("REVOKED", d12),
+       keep = "BLACK|LATINO", tex = TRUE, file = file.path(OUT_DIR, "table_revocation.tex"))
 message("Done. Tables saved in: ", OUT_DIR)
