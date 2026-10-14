@@ -6,7 +6,7 @@
 # experience quintile (Q1–Q5). All labels say "Prosecutor" (not "Outtake").
 # Three racial groups: Black, Latino, White.
 
-DATA_DIR <- "C:/Users/carolineferguson/Box/Bigelow/Bexar/Data"
+DATA_DIR <- "C:/Users/carol/Box/Bigelow/Bexar/Data"
 FIG_DIR  <- file.path(DATA_DIR, "bexar_outtake_figures")
 
 library(tidyverse)
