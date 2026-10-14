@@ -1591,7 +1591,16 @@ write_tex(tex0, file.path(DATA_DIR, "bexar_outtake_table0_sumstats.tex"))
 library(fixest)
 library(broom)
 
-df_lpm <- dp_out |> filter(!is.na(OFFENSE_CATEGORY2)) |>
+prior_counts <- dp_out |>
+  arrange(SID, `CASE-DATE`) |>
+  group_by(SID) |>
+  mutate(PRIOR_CASES = row_number() - 1L) |>
+  ungroup() |>
+  select(`CASE-CAUSE-NBR`, PRIOR_CASES)
+
+df_lpm <- dp_out |>
+  left_join(prior_counts, by = "CASE-CAUSE-NBR") |>
+  filter(!is.na(OFFENSE_CATEGORY2)) |>
   mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`),
          CASE_YEAR_FE = factor(`CASE-YEAR`))
 
@@ -1841,18 +1850,25 @@ clean_lpm_rob <- function(fit, label) {
     filter(!is.na(term_clean))
 }
 
+lpm_prior <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    PRIOR_CASES + OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR,
+  data = df_lpm, cluster = ~PROSECUTOR)
+
 lpm_rob_results <- bind_rows(
   clean_lpm_rob(lpm_bench,     "Benchmark"),
   clean_lpm_rob(lpm_age,       "DefAge"),
   clean_lpm_rob(lpm_appointed, "AppointedOnly"),
-  clean_lpm_rob(lpm_yearfe,    "YearFE")
+  clean_lpm_rob(lpm_yearfe,    "YearFE"),
+  clean_lpm_rob(lpm_prior,     "PriorCases")
 )
 
 lpm_rob_focal <- c("Black $\\times$ Career Case $N$ (per 100)",
                    "Latino $\\times$ Career Case $N$ (per 100)",
                    "Black", "Latino", "Career Case $N$ (per 100)")
 
-lpm_rob_models <- c("Benchmark", "DefAge", "AppointedOnly", "YearFE")
+lpm_rob_models <- c("Benchmark", "DefAge", "AppointedOnly", "YearFE", "PriorCases")
 
 lpm_rob_est <- lpm_rob_results |>
   select(term_clean, model, est_cell) |>
@@ -1874,10 +1890,10 @@ tex_lpm_rob <- c(
   "\\caption{Robustness Checks (Linear Probability Model)}",
   "\\label{tab:lpm_robustness}",
   "\\resizebox{\\textwidth}{!}{%",
-  "\\begin{tabular}{lcccc}",
+  "\\begin{tabular}{lccccc}",
   "\\hline\\hline",
-  " & (1) & (2) & (3) & (4) \\\\",
-  " & Benchmark & $+$ Defendant Age & Appointed Counsel Only & $+$ Year FE \\\\",
+  " & (1) & (2) & (3) & (4) & (5) \\\\",
+  " & Benchmark & $+$ Defendant Age & Appointed Counsel Only & $+$ Year FE & $+$ Prior Cases \\\\",
   "\\hline"
 )
 
@@ -1885,27 +1901,29 @@ for (i in seq_len(nrow(lpm_rob_est))) {
   e <- lpm_rob_est[i, ]; s <- lpm_rob_se[i, ]
   tex_lpm_rob <- c(tex_lpm_rob,
     paste0(e$term_clean, " & ", e$Benchmark, " & ", e$DefAge,
-           " & ", e$AppointedOnly, " & ", e$YearFE, " \\\\"),
+           " & ", e$AppointedOnly, " & ", e$YearFE, " & ", e$PriorCases, " \\\\"),
     paste0(" & ", s$Benchmark, " & ", s$DefAge,
-           " & ", s$AppointedOnly, " & ", s$YearFE, " \\\\"),
-    "& & & & \\\\"
+           " & ", s$AppointedOnly, " & ", s$YearFE, " & ", s$PriorCases, " \\\\"),
+    "& & & & & \\\\"
   )
 }
 
 tex_lpm_rob <- c(tex_lpm_rob,
   "\\hline",
-  "Prosecutor FE & Yes & Yes & Yes & Yes \\\\",
-  "Case year FE & No & No & No & Yes \\\\",
-  "Offense type \\& category FE & Yes & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & No & Yes \\\\",
-  "Defendant age & No & Yes & No & No \\\\",
-  "Sample & All & Age 16--80 & Appointed only & All \\\\",
+  "Prosecutor FE & Yes & Yes & Yes & Yes & Yes \\\\",
+  "Case year FE & No & No & No & Yes & No \\\\",
+  "Offense type \\& category FE & Yes & Yes & Yes & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes & No & Yes & Yes \\\\",
+  "Defendant age & No & Yes & No & No & No \\\\",
+  "Prior cases (SID) & No & No & No & No & Yes \\\\",
+  "Sample & All & Age 16--80 & Appointed only & All & All \\\\",
   "\\hline\\hline",
-  "\\multicolumn{5}{l}{\\footnotesize \\textit{Notes:} Linear probability model with prosecutor fixed effects. Outcome: deferred adjudication.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize Col.~(4) adds case year fixed effects; year FE absorb the main experience effect but interactions are unchanged.} \\\\",
-  "\\multicolumn{5}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize \\textit{Notes:} Linear probability model with prosecutor fixed effects. Outcome: deferred adjudication.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize SEs clustered by prosecutor. Col.~(1) repeats the benchmark from Table~2.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Col.~(3) restricts to appointed-counsel defendants; attorney type dropped as predictor.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Col.~(4) adds case year fixed effects; year FE absorb the main experience effect but interactions are unchanged.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize Col.~(5) controls for defendant's prior case count in sample (identified via SID); 41\\% of cases have at least one prior appearance.} \\\\",
+  "\\multicolumn{6}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
 )
