@@ -410,11 +410,11 @@ p7 <- ggplot(dot_rows, aes(y = offense)) +
   geom_text(data = avg_change, aes(x = x, y = offense, label = label),
             vjust = -1.8, size = 2.9, color = "gray30", fontface = "italic") +
   facet_wrap(~panel, nrow = 1) +
-  scale_x_continuous(limits = c(2, 13),
-                     breaks = seq(2, 12, 2),
+  scale_x_continuous(limits = c(2, 10),
+                     breaks = seq(2, 10, 2),
                      labels = function(x) paste0(x, " pp")) +
   labs(
-    title   = "Predicted Racial Gap in Deferred Adjudication: Career Start vs. Peak",
+    title   = "Figure 3. Predicted Racial Gap in Deferred Adjudication: Career Start vs. Peak",
     x       = "Predicted gap (percentage points)",
     y       = NULL,
     caption = str_wrap(paste0(
