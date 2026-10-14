@@ -1724,8 +1724,7 @@ clean_lpm_pros <- function(fit, label) {
 
 lpm_pros_results <- bind_rows(
   clean_lpm_pros(lpm_white_pros, "WhitePros"),
-  clean_lpm_pros(lpm_hisp_pros,  "HispanicPros"),
-  clean_lpm_pros(lpm_black_pros, "BlackPros")
+  clean_lpm_pros(lpm_hisp_pros,  "HispanicPros")
 )
 
 lpm6_focal <- c("Black $\\times$ Career Case $N$ (per 100)",
@@ -1737,18 +1736,17 @@ lpm6_est <- lpm_pros_results |>
   pivot_wider(names_from = model, values_from = est_cell) |>
   mutate(term_clean = factor(term_clean, levels = lpm6_focal)) |>
   arrange(term_clean) |>
-  mutate(across(any_of(c("WhitePros","HispanicPros","BlackPros")), ~ replace_na(., "---")))
+  mutate(across(any_of(c("WhitePros","HispanicPros")), ~ replace_na(., "---")))
 
 lpm6_se <- lpm_pros_results |>
   select(term_clean, model, se_cell) |>
   pivot_wider(names_from = model, values_from = se_cell) |>
   mutate(term_clean = factor(term_clean, levels = lpm6_focal)) |>
   arrange(term_clean) |>
-  mutate(across(any_of(c("WhitePros","HispanicPros","BlackPros")), ~ replace_na(., "")))
+  mutate(across(any_of(c("WhitePros","HispanicPros")), ~ replace_na(., "")))
 
 n_lpm_white <- nrow(df_lpm_pros |> filter(pros_pred_race == "White"))
 n_lpm_hisp  <- nrow(df_lpm_pros |> filter(pros_pred_race == "Hispanic"))
-n_lpm_black <- nrow(df_lpm_pros |> filter(pros_pred_race == "Black"))
 
 tex_lpm6 <- c(
   "\\begin{table}[H]",
@@ -1756,9 +1754,9 @@ tex_lpm6 <- c(
   "\\caption{Racial Gap in Deferred Adjudication by Prosecutor Race (LPM)}",
   "\\label{tab:lpm_pros_race}",
   "\\resizebox{\\textwidth}{!}{%",
-  "\\begin{tabular}{lccc}",
+  "\\begin{tabular}{lcc}",
   "\\hline\\hline",
-  " & White Prosecutors & Hispanic Prosecutors & Black Prosecutors$^{\\dagger}$ \\\\",
+  " & White Prosecutors & Hispanic Prosecutors \\\\",
   "\\hline"
 )
 
@@ -1766,32 +1764,28 @@ for (i in seq_len(nrow(lpm6_est))) {
   e <- lpm6_est[i, ]; s <- lpm6_se[i, ]
   wp  <- if ("WhitePros"    %in% names(e)) e$WhitePros    else "---"
   hp  <- if ("HispanicPros" %in% names(e)) e$HispanicPros else "---"
-  bp  <- if ("BlackPros"    %in% names(e)) e$BlackPros    else "---"
   wps <- if ("WhitePros"    %in% names(s)) s$WhitePros    else ""
   hps <- if ("HispanicPros" %in% names(s)) s$HispanicPros else ""
-  bps <- if ("BlackPros"    %in% names(s)) s$BlackPros    else ""
   tex_lpm6 <- c(tex_lpm6,
-    paste0(e$term_clean, " & ", wp, " & ", hp, " & ", bp, " \\\\"),
-    paste0(" & ", wps, " & ", hps, " & ", bps, " \\\\"),
-    "& & & \\\\"
+    paste0(e$term_clean, " & ", wp, " & ", hp, " \\\\"),
+    paste0(" & ", wps, " & ", hps, " \\\\"),
+    "& & \\\\"
   )
 }
 
 tex_lpm6 <- c(tex_lpm6,
   "\\hline",
-  "Prosecutor FE & Yes & Yes & No \\\\",
-  "Offense type \\& category FE & Yes & Yes & Yes \\\\",
-  "Attorney type & Yes & Yes & Yes \\\\",
+  "Prosecutor FE & Yes & Yes \\\\",
+  "Offense type \\& category FE & Yes & Yes \\\\",
+  "Attorney type & Yes & Yes \\\\",
   paste0("$N$ (cases) & $", formatC(n_lpm_white, big.mark = ","), "$ & $",
-         formatC(n_lpm_hisp, big.mark = ","), "$ & $",
-         formatC(n_lpm_black, big.mark = ","), "$ \\\\"),
-  "$N$ (prosecutors) & 375 & 126 & 11 \\\\",
+         formatC(n_lpm_hisp, big.mark = ","), "$ \\\\"),
+  "$N$ (prosecutors) & 375 & 126 \\\\",
   "\\hline\\hline",
-  "\\multicolumn{4}{l}{\\footnotesize \\textit{Notes:} Linear probability model. Each column estimates the benchmark model on a subsample defined by predicted prosecutor race.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize Cols.\\ 1--2: prosecutor FE. Col.\\ 3: no FE (too few Black prosecutors). Prosecutor race predicted from surname (\\texttt{wru}).} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize SEs clustered by prosecutor (cols.\\ 1--2). 1991--2015.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize $^{\\dagger}$Black prosecutor sample small ($N\\approx2{,}500$, 11 prosecutors); suggestive only.} \\\\",
-  "\\multicolumn{4}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize \\textit{Notes:} Linear probability model. Each column estimates the benchmark model on a subsample defined by predicted prosecutor race.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize Prosecutor FE included in both columns. Prosecutor race predicted from surname (\\texttt{wru}).} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize SEs clustered by prosecutor. 1991--2015.} \\\\",
+  "\\multicolumn{3}{l}{\\footnotesize $^{***}p<0.01$\\quad $^{**}p<0.05$\\quad $^{*}p<0.10$} \\\\",
   "\\end{tabular}}",
   "\\end{table}"
 )
