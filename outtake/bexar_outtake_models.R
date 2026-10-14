@@ -166,6 +166,17 @@ specC <- run_feglm(
     OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED,
   df, fe_vars = "PROSECUTOR", "SpecC_ProsecutorFE")
 
+# ── Spec C LPM: Linear probability model robustness check ────────────────────
+
+specC_lpm <- feols(
+  DEFERRED ~ BLACK + LATINO + OUTTAKE_CASE_N100 +
+    BLACK:OUTTAKE_CASE_N100 + LATINO:OUTTAKE_CASE_N100 +
+    OFFENSE_TYPE + OFFENSE_CATEGORY2 + APPOINTED | PROSECUTOR,
+  data = df, cluster = ~PROSECUTOR)
+
+specC_lpm_tidy <- broom::tidy(specC_lpm, conf.int = TRUE) |>
+  mutate(model = "SpecC_LPM", OR = NA_real_)
+
 # ── Spec D: Prosecutor FE + prior record proxy (col 4) ───────────────────────
 
 specD <- run_feglm(
@@ -311,7 +322,7 @@ m9 <- run_feglm(
 
 # ── Export ────────────────────────────────────────────────────────────────────
 
-all_results <- bind_rows(specA, specB, specC, specD, m7,
+all_results <- bind_rows(specA, specB, specC, specC_lpm_tidy, specD, m7,
                          era_hilbig, era_reed, specC_age,
                          specC_appointed, specC_completed, specD_completed,
                          specC_min25, specC_all5, m8, m9) |>
