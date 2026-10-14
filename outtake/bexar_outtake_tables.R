@@ -1592,7 +1592,8 @@ library(fixest)
 library(broom)
 
 df_lpm <- dp_out |> filter(!is.na(OFFENSE_CATEGORY2)) |>
-  mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`))
+  mutate(PROSECUTOR = factor(`OUTTAKE-PROSECUTOR`),
+         CASE_YEAR_FE = factor(`CASE-YEAR`))
 
 # ── LPM Table 2: Main spec (SpecC equivalent) ────────────────────────────────
 
